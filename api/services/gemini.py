@@ -21,27 +21,6 @@ def init_gemini() -> None:
     genai.configure(api_key=get_settings().gemini_api_key)
 
 
-def embed_text(text: str) -> list[float]:
-    """Embed a single text using Gemini text-embedding-004 (768 dims)."""
-    init_gemini()
-    result = genai.embed_content(
-        model="models/text-embedding-004",
-        content=text,
-        task_type="retrieval_query",
-    )
-    return result["embedding"]
-
-
-def embed_document(text: str) -> list[float]:
-    """Embed a film document for storage (different task type improves recall)."""
-    init_gemini()
-    result = genai.embed_content(
-        model="models/text-embedding-004",
-        content=text,
-        task_type="retrieval_document",
-    )
-    return result["embedding"]
-
 
 def rerank_and_explain(
     query: str,
@@ -53,7 +32,7 @@ def rerank_and_explain(
     Returns candidates sorted by relevance with 'why_youll_like_it' added.
     """
     init_gemini()
-    model = GenerativeModel("gemini-2.0-flash-exp")
+    model = GenerativeModel("gemini-2.0-flash")
 
     context_str = ""
     if user_context:
@@ -65,19 +44,31 @@ def rerank_and_explain(
             context_str += f"\nUser tends to enjoy: {', '.join(liked)}"
 
     candidates_json = json.dumps(
-        [{"id": c["id"], "title": c["title"], "synopsis": c["synopsis"], "subgenres": c["subgenres"]} for c in candidates],
+        [
+            {
+                "id": c["id"],
+                "title": c["title"],
+                "synopsis": c["synopsis"],
+                "genres": c.get("genres", []),
+                "keywords": c.get("keywords", []),
+                "niche_score": c.get("niche_score", 5),
+            }
+            for c in candidates
+        ],
         indent=2,
     )
 
-    prompt = f"""You are a horror film expert. A user searched for: "{query}"{context_str}
+    prompt = f"""You are a horror film expert who champions obscure and niche cinema. A user searched for: "{query}"{context_str}
 
 Here are candidate films (JSON):
 {candidates_json}
 
-Return a JSON array of the top 10 matches, ordered by relevance. For each include:
+Return a JSON array of the top 10 matches, ordered by relevance. Prioritize niche, obscure, and cult films (higher niche_score) when relevance is similar — surface hidden gems over mainstream picks the user has likely already heard of.
+
+For each film include:
 - "id": the film id
 - "rank": 1-10
-- "why_youll_like_it": 1-2 sentences explaining specifically why this matches the query (be specific, reference themes/tone/style)
+- "why_youll_like_it": 1-2 sentences explaining specifically why this matches the query (reference themes/tone/style, and if it's a hidden gem say so)
 - "match_score": 0.0-1.0
 
 Only return valid JSON, no markdown fences."""
@@ -101,7 +92,7 @@ Only return valid JSON, no markdown fences."""
 def generate_mood_query(mood_input: str) -> str:
     """Expand a freeform mood description into a rich search query."""
     init_gemini()
-    model = GenerativeModel("gemini-2.0-flash-exp")
+    model = GenerativeModel("gemini-2.0-flash")
     prompt = f"""Convert this horror movie mood into a detailed search query that captures themes, tone, subgenres, and atmosphere.
 Mood: "{mood_input}"
 Return only the expanded query string, no explanation."""

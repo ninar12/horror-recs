@@ -2,6 +2,8 @@ import { useState, useRef } from "react";
 import { api } from "../api";
 import { FilmCard } from "../components/FilmCard";
 
+const PAGE_SIZE = 10;
+
 const MOOD_PRESETS = [
   "genuinely terrifying, slow burn",
   "fun slasher night with friends",
@@ -14,7 +16,8 @@ const MOOD_PRESETS = [
 export function SearchPage() {
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState<"search" | "mood">("search");
-  const [films, setFilms] = useState<any[]>([]);
+  const [allFilms, setAllFilms] = useState<any[]>([]);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loading, setLoading] = useState(false);
   const [queryUsed, setQueryUsed] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -22,12 +25,13 @@ export function SearchPage() {
   const run = async (q: string) => {
     if (!q.trim()) return;
     setLoading(true);
-    setFilms([]);
+    setAllFilms([]);
+    setVisibleCount(PAGE_SIZE);
     try {
       const res = mode === "search"
         ? await api.search.query(q)
         : await api.search.mood(q);
-      setFilms(res.data.films || []);
+      setAllFilms(res.data.films || []);
       setQueryUsed(res.data.query_used || q);
     } finally {
       setLoading(false);
@@ -38,6 +42,9 @@ export function SearchPage() {
     e.preventDefault();
     run(query);
   };
+
+  const visibleFilms = allFilms.slice(0, visibleCount);
+  const hasMore = visibleCount < allFilms.length;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-10">
@@ -100,18 +107,35 @@ export function SearchPage() {
         </div>
       )}
 
-      {queryUsed && mode === "mood" && (
+      {allFilms.length > 0 && (
         <p className="mt-4 text-xs text-zinc-500">
-          Searching for: <span className="text-zinc-400 italic">{queryUsed}</span>
+          {allFilms.length} results
+          {queryUsed && mode === "mood" && (
+            <> · searching for: <span className="text-zinc-400 italic">{queryUsed}</span></>
+          )}
         </p>
       )}
 
-      <div className="mt-6 flex flex-col gap-4">
-        {films.map((film) => (
+      <div className="mt-4 flex flex-col gap-4">
+        {visibleFilms.map((film) => (
           <FilmCard key={film.id} film={film} />
         ))}
-        {!loading && films.length === 0 && query && (
+
+        {loading && (
+          <div className="text-center text-zinc-600 py-10 text-sm">Finding films...</div>
+        )}
+
+        {!loading && allFilms.length === 0 && query && (
           <p className="text-center text-zinc-600 py-10">No results. Try a different query.</p>
+        )}
+
+        {hasMore && (
+          <button
+            onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+            className="w-full py-3 border border-zinc-800 hover:border-zinc-600 text-zinc-400 hover:text-white rounded-xl text-sm transition-colors"
+          >
+            Load more ({allFilms.length - visibleCount} remaining)
+          </button>
         )}
       </div>
     </div>

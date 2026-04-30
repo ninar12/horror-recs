@@ -22,10 +22,8 @@ export const api = {
     },
   },
   search: {
-    query: (q: string, limit = 10) =>
-      client.get("/search", { params: { q, limit } }),
-    mood: (mood: string, limit = 10) =>
-      client.get("/search/mood", { params: { mood, limit } }),
+    query: (q: string) => client.get("/search", { params: { q } }),
+    mood: (mood: string) => client.get("/search/mood", { params: { mood } }),
   },
   watchlists: {
     list: () => client.get("/watchlists"),

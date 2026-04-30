@@ -2,6 +2,12 @@ from pinecone import Pinecone
 from functools import lru_cache
 import os
 
+FIELDS = [
+    "title", "year", "director", "genres", "keywords", "themes",
+    "atmosphere", "synopsis", "imdb_rating", "vote_count", "popularity",
+    "original_language", "niche_score", "streaming_platforms", "rental_platforms",
+]
+
 
 @lru_cache
 def get_pinecone_index():
@@ -10,34 +16,38 @@ def get_pinecone_index():
 
 
 def search_films(
-    query_vector: list[float],
-    top_k: int = 30,
+    query_text: str,
+    top_k: int = 50,
     filter_dict: dict | None = None,
 ) -> list[dict]:
+    """Query Pinecone using integrated embedding — send text, Pinecone embeds it."""
     index = get_pinecone_index()
-    kwargs = {"vector": query_vector, "top_k": top_k, "include_metadata": True}
+
+    query: dict = {"inputs": {"text": query_text}, "top_k": top_k}
+
+    kwargs: dict = {"namespace": "", "query": query, "fields": FIELDS}
     if filter_dict:
         kwargs["filter"] = filter_dict
 
-    results = index.query(**kwargs)
+    results = index.search(**kwargs)
+    hits = results.get("result", {}).get("hits", [])
     return [
         {
-            "id": match.id,
-            "score": match.score,
-            **match.metadata,
+            "id": hit["_id"],
+            "score": hit.get("_score", 0.0),
+            **{f: hit.get(f) for f in FIELDS if f in hit},
         }
-        for match in results.matches
+        for hit in hits
     ]
 
 
-def upsert_film(film_id: str, vector: list[float], metadata: dict) -> None:
+def upsert_records(records: list[dict]) -> None:
+    """
+    Upsert film records with integrated embedding.
+    Each record must have '_id' and 'text' (the field Pinecone embeds).
+    All other keys are stored as metadata.
+    """
     index = get_pinecone_index()
-    index.upsert(vectors=[{"id": film_id, "values": vector, "metadata": metadata}])
-
-
-def bulk_upsert_films(records: list[dict]) -> None:
-    """records: list of {id, values, metadata}"""
-    index = get_pinecone_index()
-    batch_size = 100
+    batch_size = 90  # Pinecone integrated embed batch limit
     for i in range(0, len(records), batch_size):
-        index.upsert(vectors=records[i : i + batch_size])
+        index.upsert_records(namespace="__default__", records=records[i : i + batch_size])
