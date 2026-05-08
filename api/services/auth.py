@@ -46,3 +46,15 @@ def decode_token(token: str) -> str:
 
 def get_current_user_id(token: str = Depends(oauth2_scheme)) -> str:
     return decode_token(token)
+
+
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
+
+def get_optional_user_id(token: str | None = Depends(oauth2_scheme_optional)) -> str | None:
+    """Returns user_id if authenticated, None if not. Use for public endpoints."""
+    if not token:
+        return None
+    try:
+        return decode_token(token)
+    except HTTPException:
+        return None

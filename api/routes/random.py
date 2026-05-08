@@ -2,7 +2,7 @@ import random
 from fastapi import APIRouter, Depends, Query
 from api.services.auth import get_current_user_id
 from api.services.database import get_session, WatchlistItem, Watchlist
-from api.services.gemini import embed_text, generate_mood_query
+from api.services.gemini import generate_mood_query
 from api.services.pinecone_client import search_films
 
 router = APIRouter(prefix="/api/random", tags=["random"])
@@ -35,8 +35,7 @@ def random_from_mood(
     user_id: str = Depends(get_current_user_id),
 ):
     expanded = generate_mood_query(mood)
-    vector = embed_text(expanded)
-    candidates = search_films(vector, top_k=20)
+    candidates = search_films(expanded, top_k=20)
 
     if not candidates:
         return {"film": None, "message": "No results found"}

@@ -25,20 +25,36 @@ def search_films(
 
     query: dict = {"inputs": {"text": query_text}, "top_k": top_k}
 
-    kwargs: dict = {"namespace": "", "query": query, "fields": FIELDS}
+    kwargs: dict = {"namespace": "__default__", "query": query, "fields": FIELDS}
     if filter_dict:
         kwargs["filter"] = filter_dict
 
     results = index.search(**kwargs)
-    hits = results.get("result", {}).get("hits", [])
-    return [
-        {
+
+    # Access hits via object attributes (SearchRecordsResponse)
+    try:
+        hits = results.result.hits
+    except AttributeError:
+        hits = []
+
+    output = []
+    for hit in hits:
+        # Hit objects support dict-style [] access
+        fields = hit["fields"] if "fields" in hit else {}
+        similarity = hit.get("_score", 0.0)
+        niche = float(fields.get("niche_score", 5)) / 10.0
+        # Blend: 70% semantic similarity + 30% niche score
+        blended_score = similarity * 0.7 + niche * 0.3
+
+        record = {
             "id": hit["_id"],
-            "score": hit.get("_score", 0.0),
-            **{f: hit.get(f) for f in FIELDS if f in hit},
+            "score": blended_score,
+            "similarity": similarity,
+            **{f: fields[f] for f in FIELDS if f in fields},
         }
-        for hit in hits
-    ]
+        output.append(record)
+
+    return output
 
 
 def upsert_records(records: list[dict]) -> None:

@@ -8,8 +8,7 @@ import json
 class Settings(BaseSettings):
     gemini_api_key: str
 
-    class Config:
-        env_file = ".env"
+    model_config = {"env_file": ".env", "extra": "ignore"}
 
 
 @lru_cache
@@ -32,7 +31,7 @@ def rerank_and_explain(
     Returns candidates sorted by relevance with 'why_youll_like_it' added.
     """
     init_gemini()
-    model = GenerativeModel("gemini-2.0-flash")
+    model = GenerativeModel("gemini-2.5-flash")
 
     context_str = ""
     if user_context:
@@ -46,14 +45,15 @@ def rerank_and_explain(
     candidates_json = json.dumps(
         [
             {
-                "id": c["id"],
-                "title": c["title"],
-                "synopsis": c["synopsis"],
+                "id": c.get("id", ""),
+                "title": c.get("title", ""),
+                "synopsis": c.get("synopsis", ""),
                 "genres": c.get("genres", []),
                 "keywords": c.get("keywords", []),
                 "niche_score": c.get("niche_score", 5),
             }
             for c in candidates
+            if c.get("title")
         ],
         indent=2,
     )
@@ -92,7 +92,7 @@ Only return valid JSON, no markdown fences."""
 def generate_mood_query(mood_input: str) -> str:
     """Expand a freeform mood description into a rich search query."""
     init_gemini()
-    model = GenerativeModel("gemini-2.0-flash")
+    model = GenerativeModel("gemini-2.5-flash")
     prompt = f"""Convert this horror movie mood into a detailed search query that captures themes, tone, subgenres, and atmosphere.
 Mood: "{mood_input}"
 Return only the expanded query string, no explanation."""
