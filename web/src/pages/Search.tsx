@@ -328,7 +328,7 @@ export function SearchPage() {
           {/* Grid — 2 → 3 → 4 → 5 → 6 columns */}
           {!loading && visibleFilms.length > 0 && (
             <div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3 items-start">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3">
                 {visibleFilms.map((film, i) => (
                   <FilmCard key={film.id} film={film} index={i} />
                 ))}

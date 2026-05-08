@@ -347,7 +347,7 @@ export function FilmCard({ film, watchlistId, onAdded, index }: Props) {
         </div>
 
         {/* Info strip */}
-        <div className="px-3 pt-2.5 pb-2">
+        <div className="px-3 pt-2.5 pb-2 flex-1 flex flex-col">
           <div className="flex items-start justify-between gap-2">
             <p className="text-[var(--term-bright)] font-['VT323'] text-2xl leading-tight tracking-wide line-clamp-2 flex-1 min-w-0">
               {film.title}
