@@ -22,8 +22,10 @@ export const api = {
     },
   },
   search: {
-    query: (q: string) => client.get("/search", { params: { q } }),
-    mood: (mood: string) => client.get("/search/mood", { params: { mood } }),
+    query: (q: string, opts?: { niche_min?: number; niche_max?: number }) =>
+      client.get("/search", { params: { q, ...opts } }),
+    mood: (mood: string, opts?: { niche_min?: number; niche_max?: number }) =>
+      client.get("/search/mood", { params: { mood, ...opts } }),
   },
   watchlists: {
     list: () => client.get("/watchlists"),

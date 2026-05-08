@@ -6,6 +6,7 @@ FIELDS = [
     "title", "year", "director", "genres", "keywords", "themes",
     "atmosphere", "synopsis", "imdb_rating", "vote_count", "popularity",
     "original_language", "niche_score", "streaming_platforms", "rental_platforms",
+    "rt_score", "lb_rating", "consensus_score",
 ]
 
 
@@ -25,11 +26,7 @@ def search_films(
 
     query: dict = {"inputs": {"text": query_text}, "top_k": top_k}
 
-    kwargs: dict = {"namespace": "__default__", "query": query, "fields": FIELDS}
-    if filter_dict:
-        kwargs["filter"] = filter_dict
-
-    results = index.search(**kwargs)
+    results = index.search(namespace="__default__", query=query, fields=FIELDS)
 
     # Access hits via object attributes (SearchRecordsResponse)
     try:
@@ -37,13 +34,17 @@ def search_films(
     except AttributeError:
         hits = []
 
+    niche_min = (filter_dict or {}).get("niche_score", {}).get("$gte", 1)
+    niche_max = (filter_dict or {}).get("niche_score", {}).get("$lte", 10)
+
     output = []
     for hit in hits:
-        # Hit objects support dict-style [] access
         fields = hit["fields"] if "fields" in hit else {}
+        niche_score = float(fields.get("niche_score", 5))
+        if not (niche_min <= niche_score <= niche_max):
+            continue
         similarity = hit.get("_score", 0.0)
-        niche = float(fields.get("niche_score", 5)) / 10.0
-        # Blend: 70% semantic similarity + 30% niche score
+        niche = niche_score / 10.0
         blended_score = similarity * 0.7 + niche * 0.3
 
         record = {

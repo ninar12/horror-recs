@@ -1,9 +1,97 @@
+@import url('https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --term-bright: #d4c84a;
+  --term-mid: #8a7e2a;
+  --term-dark: #7b6722;
+  --term-bright-10: rgba(212, 200, 74, 0.10);
+  --term-bright-5: rgba(212, 200, 74, 0.05);
+  --term-panel: rgba(6, 5, 0, 0.92);
+  --term-panel-light: rgba(6, 5, 0, 0.80);
+}
+
+:root[data-theme="green"] {
+  --term-bright: #39ff14;
+  --term-mid: #1a9a08;
+  --term-dark: #13680a;
+  --term-bright-10: rgba(57, 255, 20, 0.10);
+  --term-bright-5: rgba(57, 255, 20, 0.05);
+  --term-panel: rgba(0, 5, 0, 0.92);
+  --term-panel-light: rgba(0, 5, 0, 0.80);
+}
+
+:root[data-theme="red"] {
+  --term-bright: #ff4444;
+  --term-mid: #8a2020;
+  --term-dark: #8c1616;
+  --term-bright-10: rgba(255, 68, 68, 0.10);
+  --term-bright-5: rgba(255, 68, 68, 0.05);
+  --term-panel: rgba(6, 0, 0, 0.92);
+  --term-panel-light: rgba(6, 0, 0, 0.80);
+}
+
+:root[data-theme="cyan"] {
+  --term-bright: #00e5ff;
+  --term-mid: #007a8a;
+  --term-dark: #026181;
+  --term-bright-10: rgba(0, 229, 255, 0.10);
+  --term-bright-5: rgba(0, 229, 255, 0.05);
+  --term-panel: rgba(0, 4, 6, 0.92);
+  --term-panel-light: rgba(0, 4, 6, 0.80);
+}
+
+:root[data-theme="white"] {
+  --term-bright: #d0d0d0;
+  --term-mid: #888888;
+  --term-dark: #616060;
+  --term-bright-10: rgba(208, 208, 208, 0.10);
+  --term-bright-5: rgba(208, 208, 208, 0.05);
+  --term-panel: rgba(4, 4, 4, 0.92);
+  --term-panel-light: rgba(4, 4, 4, 0.80);
+}
+
 body {
   background-color: #000;
-  color: #fff;
-  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--term-bright);
+  font-family: 'Share Tech Mono', monospace;
+}
+
+/* Scanlines */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.06) 2px,
+    rgba(0, 0, 0, 0.06) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+@keyframes blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.cursor::after {
+  content: '█';
+  animation: blink 1s step-start infinite;
+  margin-left: 2px;
+}
+
+@keyframes flicker {
+  0%, 97%, 100% { opacity: 1; }
+  98% { opacity: 0.88; }
+}
+
+.terminal-panel {
+  animation: flicker 8s infinite;
 }

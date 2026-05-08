@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { api } from "../api";
 
 interface Film {
@@ -10,36 +11,95 @@ interface Film {
   synopsis?: string;
   atmosphere?: string;
   imdb_rating?: number;
+  rt_score?: number;
+  lb_rating?: number;
+  consensus_score?: number;
   niche_score?: number;
   why_youll_like_it?: string;
   streaming_platforms?: string[];
+  poster_url?: string;
 }
 
 interface Props {
   film: Film;
   watchlistId?: string;
   onAdded?: () => void;
+  index?: number;
 }
 
-function NicheBadge({ score }: { score: number }) {
-  if (score <= 3) return null;
-  const label = score >= 8 ? "Deep cut" : score >= 6 ? "Cult pick" : "Hidden gem";
-  const color =
-    score >= 8
-      ? "bg-purple-950 text-purple-300 border-purple-800"
-      : score >= 6
-      ? "bg-indigo-950 text-indigo-300 border-indigo-800"
-      : "bg-zinc-800 text-zinc-400 border-zinc-700";
+function getNicheTier(score: number) {
+  if (score >= 8) return { label: "DEEP CUT",  color: "#cc44ff" };
+  if (score >= 6) return { label: "CULT PICK",  color: "#4488ff" };
+  if (score >= 4) return { label: "HIDDEN GEM", color: "var(--term-bright)" };
+  return null;
+}
+
+function scoreColor(val: number, max: number) {
+  const pct = val / max;
+  if (pct >= 0.70) return "#4caf50";
+  if (pct >= 0.50) return "#f9a825";
+  return "#e53935";
+}
+
+interface RatingBadgeProps {
+  label: string;
+  value: string;
+  color: string;
+  href: string;
+}
+function RatingBadge({ label, value, color, href }: RatingBadgeProps) {
   return (
-    <span className={`text-xs px-2 py-0.5 rounded-full border ${color}`}>
-      {label} · {score}/10
-    </span>
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex flex-col items-center gap-0.5 px-3 py-2 border border-[var(--term-dark)] hover:border-[var(--term-bright)] transition-colors min-w-[60px]"
+    >
+      <span className="text-[9px] font-mono text-[var(--term-dark)] uppercase tracking-widest leading-none">
+        {label}
+      </span>
+      <span className="text-xl font-['VT323'] leading-none" style={{ color }}>
+        {value}
+      </span>
+    </a>
   );
 }
 
-export function FilmCard({ film, watchlistId, onAdded }: Props) {
+// ── Modal ─────────────────────────────────────────────────────────────────────
+
+function FilmModal({
+  film,
+  watchlistId,
+  onAdded,
+  onClose,
+}: {
+  film: Film;
+  watchlistId?: string;
+  onAdded?: () => void;
+  onClose: () => void;
+}) {
   const [adding, setAdding] = useState(false);
-  const [added, setAdded] = useState(false);
+  const [added, setAdded]   = useState(false);
+
+  const tier        = film.niche_score != null ? getNicheTier(film.niche_score) : null;
+  const accentColor = tier?.color ?? "var(--term-bright)";
+
+  const letterboxdUrl = `https://letterboxd.com/search/${encodeURIComponent(film.title)}/`;
+  const imdbUrl       = `https://www.imdb.com/find/?q=${encodeURIComponent(`${film.title} ${film.year ?? ""}`)}`;
+  const rtUrl         = `https://www.rottentomatoes.com/search?search=${encodeURIComponent(film.title)}`;
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  // Prevent body scroll while open
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
 
   const handleAdd = async () => {
     if (!watchlistId) return;
@@ -54,53 +114,300 @@ export function FilmCard({ film, watchlistId, onAdded }: Props) {
     onAdded?.();
   };
 
-  return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 hover:border-red-900 transition-colors">
-      <div className="flex justify-between items-start gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-white font-bold text-lg leading-tight">{film.title}</h3>
-            {film.niche_score != null && <NicheBadge score={film.niche_score} />}
-          </div>
-          <p className="text-zinc-400 text-sm mt-0.5">
-            {film.year}{film.director ? ` · ${film.director}` : ""}
-            {film.imdb_rating ? ` · ★ ${film.imdb_rating}` : ""}
-          </p>
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8"
+      onClick={onClose}
+    >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+
+      {/* Panel */}
+      <div
+        className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[var(--term-panel)] border border-[var(--term-bright)] flex flex-col sm:flex-row"
+        style={{ borderTopColor: accentColor, borderTopWidth: "3px" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Poster column */}
+        <div className="sm:w-48 shrink-0 bg-black">
+          {film.poster_url ? (
+            <img
+              src={film.poster_url}
+              alt={film.title}
+              className="w-full h-full object-cover"
+              style={{ maxHeight: "320px" }}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
+          ) : (
+            <div className="w-full h-48 flex items-center justify-center text-[var(--term-dark)] font-['VT323'] text-6xl">
+              ?
+            </div>
+          )}
         </div>
-        {watchlistId && (
-          <button
-            onClick={handleAdd}
-            disabled={adding || added}
-            className="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-red-900 hover:bg-red-800 text-white disabled:opacity-50 transition-colors"
+
+        {/* Details column */}
+        <div className="flex-1 p-5 space-y-4 min-w-0">
+
+          {/* Header */}
+          <div>
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="text-[var(--term-bright)] font-['VT323'] text-4xl leading-tight tracking-wide">
+                {film.title}
+              </h2>
+              <button
+                onClick={onClose}
+                className="text-[var(--term-dark)] hover:text-[var(--term-bright)] text-xl leading-none shrink-0 mt-1"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex items-center gap-3 mt-1 flex-wrap">
+              {film.year && (
+                <span className="text-sm font-mono text-[var(--term-mid)]">{film.year}</span>
+              )}
+              {film.director && (
+                <span className="text-sm font-mono text-[var(--term-mid)]">{film.director}</span>
+              )}
+              {tier && film.niche_score != null && (
+                <span
+                  className="text-[10px] font-mono px-1.5 py-px border"
+                  style={{ color: tier.color, borderColor: tier.color }}
+                >
+                  {tier.label} {film.niche_score}/10
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Ratings */}
+          {(film.imdb_rating != null || film.rt_score != null || film.lb_rating != null) && (
+            <div className="flex gap-2 flex-wrap">
+              {film.imdb_rating != null && (
+                <RatingBadge
+                  label="IMDb"
+                  value={film.imdb_rating.toFixed(1)}
+                  color={scoreColor(film.imdb_rating, 10)}
+                  href={imdbUrl}
+                />
+              )}
+              {film.rt_score != null && (
+                <RatingBadge
+                  label="RT"
+                  value={`${film.rt_score}%`}
+                  color={scoreColor(film.rt_score, 100)}
+                  href={rtUrl}
+                />
+              )}
+              {film.lb_rating != null && (
+                <RatingBadge
+                  label="Letterboxd"
+                  value={film.lb_rating.toFixed(1)}
+                  color={scoreColor(film.lb_rating, 5)}
+                  href={letterboxdUrl}
+                />
+              )}
+              {film.consensus_score != null && (
+                <div className="flex flex-col items-center gap-0.5 px-3 py-2 border border-[var(--term-bright)] min-w-[60px]">
+                  <span className="text-[9px] font-mono text-[var(--term-dark)] uppercase tracking-widest leading-none">
+                    consensus
+                  </span>
+                  <span
+                    className="text-xl font-['VT323'] leading-none"
+                    style={{ color: scoreColor(film.consensus_score, 10) }}
+                  >
+                    {film.consensus_score.toFixed(1)}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* AI reason */}
+          {film.why_youll_like_it && (
+            <p
+              className="text-sm leading-relaxed pl-3 border-l-2 italic"
+              style={{ color: accentColor, borderColor: accentColor }}
+            >
+              {film.why_youll_like_it}
+            </p>
+          )}
+
+          {/* Synopsis */}
+          {film.synopsis && (
+            <div className="text-xs font-mono text-[var(--term-mid)] leading-relaxed">
+              <span className="text-[var(--term-dark)]">SYNOPSIS  </span>
+              {film.synopsis}
+            </div>
+          )}
+
+          {/* Atmosphere */}
+          {film.atmosphere && (
+            <div className="text-xs font-mono text-[var(--term-mid)] leading-relaxed">
+              <span className="text-[var(--term-dark)]">ATMOSPHERE  </span>
+              {film.atmosphere}
+            </div>
+          )}
+
+          {/* Genres */}
+          {film.genres?.length ? (
+            <div className="flex flex-wrap gap-1.5">
+              {film.genres.map((g) => (
+                <span key={g} className="text-[9px] font-mono px-1.5 py-px border border-[var(--term-dark)] text-[var(--term-dark)]">
+                  {g.toLowerCase().replace(/ /g, "_")}
+                </span>
+              ))}
+            </div>
+          ) : null}
+
+          {/* Streaming */}
+          {film.streaming_platforms?.length ? (
+            <div className="text-xs font-mono">
+              <span className="text-[var(--term-dark)]">STREAM  </span>
+              <span className="text-[var(--term-bright)]">
+                {film.streaming_platforms.join(" · ")}
+              </span>
+            </div>
+          ) : null}
+
+          {/* Footer: links + save */}
+          <div className="flex items-center gap-2 pt-1 flex-wrap">
+            <a href={letterboxdUrl} target="_blank" rel="noopener noreferrer"
+              className="text-xs font-mono px-2 py-1 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] transition-colors">
+              LETTERBOXD ↗
+            </a>
+            <a href={imdbUrl} target="_blank" rel="noopener noreferrer"
+              className="text-xs font-mono px-2 py-1 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] transition-colors">
+              IMDB ↗
+            </a>
+            {watchlistId && (
+              <button
+                onClick={handleAdd}
+                disabled={adding || added}
+                className="ml-auto text-xs font-mono px-3 py-1 border border-[var(--term-bright)] text-[var(--term-bright)] hover:bg-[var(--term-bright-10)] disabled:opacity-40 transition-colors"
+              >
+                {added ? "SAVED ✓" : adding ? "SAVING…" : "+ SAVE TO WATCHLIST"}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ── Card (grid tile) ──────────────────────────────────────────────────────────
+
+export function FilmCard({ film, watchlistId, onAdded, index }: Props) {
+  const [open, setOpen] = useState(false);
+
+  const idx         = index !== undefined ? String(index + 1).padStart(2, "0") : "--";
+  const tier        = film.niche_score != null ? getNicheTier(film.niche_score) : null;
+  const accentColor = tier?.color ?? "var(--term-dark)";
+  const imdbUrl     = `https://www.imdb.com/find/?q=${encodeURIComponent(`${film.title} ${film.year ?? ""}`)}`;
+
+  const consensusVal   = film.consensus_score ?? film.imdb_rating ?? null;
+  const consensusStr   = consensusVal != null ? consensusVal.toFixed(1) : null;
+  const consensusColor = consensusVal != null ? scoreColor(consensusVal, 10) : "var(--term-mid)";
+
+  return (
+    <>
+      <div
+        className="group relative flex flex-col bg-[var(--term-panel)] border border-[var(--term-dark)] hover:border-[var(--term-bright)] transition-colors cursor-pointer"
+        style={{ borderTopColor: accentColor, borderTopWidth: "2px" }}
+        onClick={() => setOpen(true)}
+      >
+        {/* Poster */}
+        <div className="relative w-full bg-black overflow-hidden" style={{ aspectRatio: "2/3" }}>
+          {film.poster_url ? (
+            <img
+              src={film.poster_url}
+              alt={film.title}
+              className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-[var(--term-dark)] font-['VT323'] text-5xl">?</div>
+          )}
+
+          {/* Index */}
+          <span className="absolute top-2 left-2 text-[10px] font-mono bg-black/70 text-[var(--term-mid)] px-1.5 py-px leading-none">
+            {idx}
+          </span>
+
+          {/* Niche badge */}
+          {tier && film.niche_score != null && (
+            <span
+              className="absolute top-2 right-2 text-[9px] font-mono px-1.5 py-px leading-none"
+              style={{ color: tier.color, backgroundColor: "rgba(0,0,0,0.80)", border: `1px solid ${tier.color}` }}
+            >
+              {tier.label} {film.niche_score}/10
+            </span>
+          )}
+        </div>
+
+        {/* Info strip */}
+        <div className="px-3 pt-2.5 pb-2">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-[var(--term-bright)] font-['VT323'] text-2xl leading-tight tracking-wide line-clamp-2 flex-1 min-w-0">
+              {film.title}
+            </p>
+            {consensusStr && (
+              <span className="font-['VT323'] text-2xl leading-tight shrink-0" style={{ color: consensusColor }}>
+                {consensusStr}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            {film.year && (
+              <span className="text-xs font-mono text-[var(--term-mid)]">{film.year}</span>
+            )}
+            {film.director && (
+              <span className="text-[10px] font-mono text-[var(--term-dark)] truncate max-w-[120px]">
+                {film.director}
+              </span>
+            )}
+          </div>
+          {/* Niche score bar */}
+          {film.niche_score != null && (
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <span className="text-[9px] font-mono text-[var(--term-dark)] uppercase tracking-widest">niche</span>
+              <div className="flex-1 h-px bg-[var(--term-dark)] relative max-w-[48px]">
+                <div
+                  className="absolute inset-y-0 left-0"
+                  style={{ width: `${film.niche_score * 10}%`, backgroundColor: accentColor, opacity: 0.8 }}
+                />
+              </div>
+              <span className="text-[10px] font-mono" style={{ color: accentColor }}>
+                {film.niche_score}/10
+              </span>
+            </div>
+          )}
+
+          {/* IMDb link */}
+          <a
+            href={imdbUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-1 mt-2 text-[9px] font-mono text-[var(--term-dark)] hover:text-[var(--term-bright)] transition-colors"
           >
-            {added ? "Added" : adding ? "..." : "+ Watchlist"}
-          </button>
-        )}
+            <span className="px-1 py-px border border-[var(--term-dark)] hover:border-[var(--term-bright)] transition-colors">
+              IMDb
+            </span>
+            <span>↗</span>
+          </a>
+        </div>
       </div>
 
-      {film.genres?.length ? (
-        <div className="flex flex-wrap gap-1.5 mt-3">
-          {film.genres.map((g) => (
-            <span key={g} className="text-xs px-2 py-0.5 bg-zinc-800 text-zinc-300 rounded-full">
-              {g}
-            </span>
-          ))}
-        </div>
-      ) : null}
-
-      {film.why_youll_like_it && (
-        <p className="mt-3 text-sm text-red-300 italic">"{film.why_youll_like_it}"</p>
+      {open && (
+        <FilmModal
+          film={film}
+          watchlistId={watchlistId}
+          onAdded={onAdded}
+          onClose={() => setOpen(false)}
+        />
       )}
-
-      {film.synopsis && (
-        <p className="mt-2 text-sm text-zinc-400 line-clamp-3">{film.synopsis}</p>
-      )}
-
-      {film.streaming_platforms?.length ? (
-        <p className="mt-3 text-xs text-zinc-500">
-          Watch on: {film.streaming_platforms.join(", ")}
-        </p>
-      ) : null}
-    </div>
+    </>
   );
 }

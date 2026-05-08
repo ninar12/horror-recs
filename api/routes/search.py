@@ -4,11 +4,12 @@ from api.services.gemini import rerank_and_explain, generate_mood_query
 from api.services.pinecone_client import search_films
 from api.services.auth import get_optional_user_id
 from api.services.database import get_session, WatchHistory
+from api.services.film_lookup import enrich_with_posters
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
 # Fetch this many from Pinecone upfront — Gemini reranks once, frontend paginates
-CANDIDATE_POOL = 50
+CANDIDATE_POOL = 10
 
 
 class SearchResponse(BaseModel):
@@ -40,7 +41,7 @@ def search(
     niche_filter = {"niche_score": {"$gte": niche_min, "$lte": niche_max}}
     candidates = search_films(q, top_k=CANDIDATE_POOL, filter_dict=niche_filter)
     context = _get_user_context(user_id) if user_id else {}
-    ranked = rerank_and_explain(q, candidates, context)
+    ranked = enrich_with_posters(rerank_and_explain(q, candidates, context))
     return SearchResponse(films=ranked, total=len(ranked), query_used=q)
 
 
@@ -55,5 +56,5 @@ def mood_search(
     niche_filter = {"niche_score": {"$gte": niche_min, "$lte": niche_max}}
     candidates = search_films(expanded_query, top_k=CANDIDATE_POOL, filter_dict=niche_filter)
     context = _get_user_context(user_id) if user_id else {}
-    ranked = rerank_and_explain(expanded_query, candidates, context)
+    ranked = enrich_with_posters(rerank_and_explain(expanded_query, candidates, context))
     return SearchResponse(films=ranked, total=len(ranked), query_used=expanded_query)
