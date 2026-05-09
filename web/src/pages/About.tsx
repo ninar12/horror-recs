@@ -25,7 +25,7 @@ export function AboutPage() {
             >
               Nina Rhone
             </a>
-            {" "}— Applied AI Architect at GUESS?, Inc.
+            {" "}— AI Solutions Architect at Guess
           </p>
           <p className="mt-3">
             I basically only watch horror movies. I'm also a{" "}
