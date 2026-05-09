@@ -6,7 +6,7 @@ FIELDS = [
     "title", "year", "director", "genres", "keywords", "themes",
     "atmosphere", "synopsis", "imdb_rating", "vote_count", "popularity",
     "original_language", "niche_score", "streaming_platforms", "rental_platforms",
-    "rt_score", "lb_rating", "consensus_score",
+    "rt_score", "lb_rating", "consensus_score", "poster_url",
 ]
 
 
