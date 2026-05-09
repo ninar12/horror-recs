@@ -40,7 +40,7 @@ def search(
     niche_filter = {"niche_score": {"$gte": niche_min, "$lte": niche_max}}
     candidates = search_films(q, top_k=CANDIDATE_POOL, filter_dict=niche_filter)
     context = _get_user_context(user_id) if user_id else {}
-    ranked = rerank_and_explain(q, candidates, context))
+    ranked = rerank_and_explain(q, candidates, context)
     return SearchResponse(films=ranked, total=len(ranked), query_used=q)
 
 
@@ -55,5 +55,5 @@ def mood_search(
     niche_filter = {"niche_score": {"$gte": niche_min, "$lte": niche_max}}
     candidates = search_films(expanded_query, top_k=CANDIDATE_POOL, filter_dict=niche_filter)
     context = _get_user_context(user_id) if user_id else {}
-    ranked = rerank_and_explain(expanded_query, candidates, context))
+    ranked = rerank_and_explain(expanded_query, candidates, context)
     return SearchResponse(films=ranked, total=len(ranked), query_used=expanded_query)
