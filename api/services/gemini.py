@@ -1,8 +1,8 @@
-import google.generativeai as genai
-from google.generativeai import GenerativeModel
-from pydantic_settings import BaseSettings
+from google import genai
 from functools import lru_cache
+from pydantic_settings import BaseSettings
 import json
+import os
 
 
 class Settings(BaseSettings):
@@ -16,13 +16,17 @@ def get_settings() -> Settings:
     return Settings()
 
 
-def init_gemini() -> None:
-    genai.configure(api_key=get_settings().gemini_api_key)
+@lru_cache(maxsize=1)
+def _get_client() -> genai.Client:
+    return genai.Client(api_key=get_settings().gemini_api_key)
 
 
-
-def _make_model() -> GenerativeModel:
-    return GenerativeModel("gemini-2.5-flash-lite")
+def _generate(prompt: str) -> str:
+    response = _get_client().models.generate_content(
+        model="gemini-2.5-flash-lite",
+        contents=prompt,
+    )
+    return response.text
 
 
 def rerank_and_explain(
@@ -30,10 +34,7 @@ def rerank_and_explain(
     candidates: list[dict],
     user_context: dict | None = None,
 ) -> list[dict]:
-    """Rerank candidates and generate match explanations using Gemini Flash."""
-    init_gemini()
-    model = _make_model()
-
+    """Rerank candidates and generate match explanations using Gemini."""
     context_str = ""
     if user_context:
         watched = user_context.get("watched_titles", [])
@@ -62,11 +63,11 @@ Candidates: {candidates_json}
 Return JSON array of top 8, best match first. Each item: {{"id":"...","rank":1,"why":"one sentence why it fits","score":0.9}}
 Only valid JSON, no markdown."""
 
-    response = model.generate_content(prompt)
     try:
-        rankings = json.loads(response.text)
-    except json.JSONDecodeError:
-        return candidates[:10]
+        text = _generate(prompt)
+        rankings = json.loads(text)
+    except Exception:
+        return candidates[:8]
 
     rank_map = {r["id"]: r for r in rankings}
     results = []
@@ -85,10 +86,7 @@ Only valid JSON, no markdown."""
 
 def generate_mood_query(mood_input: str) -> str:
     """Expand a freeform mood description into a rich search query."""
-    init_gemini()
-    model = _make_model()
     prompt = f"""Convert this horror movie mood into a concise search query (one line) capturing themes, tone, subgenres, atmosphere.
 Mood: "{mood_input}"
 Return only the query string."""
-    response = model.generate_content(prompt)
-    return response.text.strip()
+    return _generate(prompt).strip()
