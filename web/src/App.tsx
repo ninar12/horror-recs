@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { SearchPage } from "./pages/Search";
 import { WatchlistsPage } from "./pages/Watchlists";
 import { AboutPage } from "./pages/About";
+import { AuthModal } from "./components/AuthModal";
 
 const THEMES = [
   { id: "amber", color: "#ffcc00" },
@@ -14,53 +15,93 @@ const THEMES = [
 
 function useTheme() {
   const [theme, setTheme] = useState(() => localStorage.getItem("term-theme") || "amber");
-
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("term-theme", theme);
   }, [theme]);
-
   return { theme, setTheme };
+}
+
+function useAuth() {
+  const [loggedIn, setLoggedIn] = useState(() => !!localStorage.getItem("token"));
+  const logout = () => {
+    localStorage.removeItem("token");
+    setLoggedIn(false);
+  };
+  const onLogin = () => setLoggedIn(true);
+  return { loggedIn, logout, onLogin };
 }
 
 function Nav() {
   const { theme, setTheme } = useTheme();
+  const { loggedIn, logout, onLogin } = useAuth();
+  const [showAuth, setShowAuth] = useState(false);
+
   const base = "text-sm transition-colors px-3 py-1 border";
   const active = `${base} border-[var(--term-bright)] text-[var(--term-bright)] bg-[var(--term-bright-5)]`;
   const inactive = `${base} border-transparent text-[var(--term-mid)] hover:text-[var(--term-bright)]`;
 
   return (
-    <nav className="border-b border-[var(--term-dark)] px-4 py-2 flex items-center gap-4 sticky top-0 bg-[var(--term-panel)] backdrop-blur z-10">
-      <span className="text-[var(--term-bright)] font-['VT323'] text-2xl tracking-widest mr-2">&gt;_ REELSCREAM</span>
-      <div className="h-4 w-px bg-[var(--term-dark)]" />
-      <NavLink to="/" className={({ isActive }) => isActive ? active : inactive} end>
-        [DISCOVER]
-      </NavLink>
-      <NavLink to="/watchlists" className={({ isActive }) => isActive ? active : inactive}>
-        [WATCHLISTS]
-      </NavLink>
-      <NavLink to="/about" className={({ isActive }) => isActive ? active : inactive}>
-        [ABOUT]
-      </NavLink>
+    <>
+      <nav className="border-b border-[var(--term-dark)] px-4 py-2 flex items-center gap-2 sm:gap-4 sticky top-0 bg-[var(--term-panel)] backdrop-blur z-10">
+        <span className="text-[var(--term-bright)] font-['VT323'] text-2xl tracking-widest mr-2">&gt;_ REELSCREAM</span>
+        <div className="h-4 w-px bg-[var(--term-dark)]" />
+        <NavLink to="/" className={({ isActive }) => isActive ? active : inactive} end>
+          [DISCOVER]
+        </NavLink>
+        <NavLink to="/watchlists" className={({ isActive }) => isActive ? active : inactive}>
+          [WATCHLISTS]
+        </NavLink>
+        <NavLink to="/about" className={({ isActive }) => isActive ? active : inactive}>
+          [ABOUT]
+        </NavLink>
 
-      <div className="ml-auto flex items-center gap-2">
-        <span className="text-[var(--term-dark)] text-xs hidden sm:block mr-1">COLOR:</span>
-        {THEMES.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTheme(t.id)}
-            title={t.id.toUpperCase()}
-            className="w-4 h-4 rounded-full border transition-all"
-            style={{
-              backgroundColor: t.color,
-              borderColor: theme === t.id ? t.color : "transparent",
-              boxShadow: theme === t.id ? `0 0 6px ${t.color}` : "none",
-              opacity: theme === t.id ? 1 : 0.4,
-            }}
-          />
-        ))}
-      </div>
-    </nav>
+        <div className="ml-auto flex items-center gap-2 sm:gap-3">
+          {/* Auth */}
+          {loggedIn ? (
+            <button
+              onClick={logout}
+              className="text-xs border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] px-2 py-1 transition-colors"
+            >
+              [LOGOUT]
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowAuth(true)}
+              className="text-xs border border-[var(--term-bright)] text-[var(--term-bright)] hover:bg-[var(--term-bright-10)] px-2 py-1 transition-colors"
+            >
+              [LOGIN]
+            </button>
+          )}
+
+          <div className="h-4 w-px bg-[var(--term-dark)] hidden sm:block" />
+
+          {/* Color swatches */}
+          <span className="text-[var(--term-dark)] text-xs hidden sm:block">COLOR:</span>
+          {THEMES.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTheme(t.id)}
+              title={t.id.toUpperCase()}
+              className="w-4 h-4 rounded-full border transition-all"
+              style={{
+                backgroundColor: t.color,
+                borderColor: theme === t.id ? t.color : "transparent",
+                boxShadow: theme === t.id ? `0 0 6px ${t.color}` : "none",
+                opacity: theme === t.id ? 1 : 0.4,
+              }}
+            />
+          ))}
+        </div>
+      </nav>
+
+      {showAuth && (
+        <AuthModal
+          onClose={() => setShowAuth(false)}
+          onSuccess={onLogin}
+        />
+      )}
+    </>
   );
 }
 
@@ -78,12 +119,12 @@ export default function App() {
       >
         <Nav />
         <div className="flex-1 overflow-hidden">
-        <Routes>
-          <Route path="/" element={<SearchPage />} />
-          <Route path="/watchlists" element={<WatchlistsPage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
+          <Routes>
+            <Route path="/" element={<SearchPage />} />
+            <Route path="/watchlists" element={<WatchlistsPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
         </div>
       </div>
     </BrowserRouter>

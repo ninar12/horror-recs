@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { api } from "../api";
 import { FilmCard } from "../components/FilmCard";
 
@@ -24,30 +24,55 @@ const RANDOM_QUERIES = [
   "rural isolation psychological breakdown",
 ];
 
+type Mode = "search" | "mood" | "image";
+
 export function SearchPage() {
   const [query, setQuery] = useState("");
-  const [mode, setMode] = useState<"search" | "mood">("search");
+  const [mode, setMode] = useState<Mode>("search");
   const [allFilms, setAllFilms] = useState<any[]>([]);
+  const [_seenIds, setSeenIds] = useState<Set<string>>(new Set());
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loading, setLoading] = useState(false);
   const [queryUsed, setQueryUsed] = useState("");
   const [nicheMin, setNicheMin] = useState(3);
   const [nicheEnabled, setNicheEnabled] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Image mode state
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const run = async (q: string, runMode = mode, nMin = nicheMin, nEnabled = nicheEnabled) => {
-    if (!q.trim()) return;
+  const run = async (q: string, runMode = mode, nMin = nicheMin, nEnabled = nicheEnabled, imgFile?: File) => {
+    if (runMode !== "image" && !q.trim()) return;
+    if (runMode === "image" && !imgFile) return;
     setLoading(true);
     setAllFilms([]);
+    setSeenIds(new Set());
     setVisibleCount(PAGE_SIZE);
-    setSidebarOpen(false); // close sidebar on mobile after search
+    setSidebarOpen(false);
     const effectiveMin = nEnabled ? nMin : 1;
     try {
-      const res = runMode === "search"
-        ? await api.search.query(q, { niche_min: effectiveMin })
-        : await api.search.mood(q, { niche_min: effectiveMin });
-      setAllFilms(res.data.films || []);
+      let res;
+      if (runMode === "search") {
+        res = await api.search.query(q, { niche_min: effectiveMin });
+      } else if (runMode === "mood") {
+        res = await api.search.mood(q, { niche_min: effectiveMin });
+      } else {
+        res = await api.search.image(imgFile!, { niche_min: effectiveMin });
+      }
+      const films: any[] = res.data.films || [];
+      // Deduplicate against already-seen IDs (fresh search clears seenIds above)
+      const freshIds = new Set<string>();
+      const deduped = films.filter((f) => {
+        if (freshIds.has(f.id)) return false;
+        freshIds.add(f.id);
+        return true;
+      });
+      setAllFilms(deduped);
+      setSeenIds(freshIds);
       setQueryUsed(res.data.query_used || q);
     } finally {
       setLoading(false);
@@ -66,6 +91,35 @@ export function SearchPage() {
     run(q, "search");
   };
 
+  const handleImageFile = useCallback((file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    setImageFile(file);
+    const url = URL.createObjectURL(file);
+    setImagePreview(url);
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragOver(false);
+      const file = e.dataTransfer.files[0];
+      if (file) handleImageFile(file);
+    },
+    [handleImageFile]
+  );
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleImageFile(file);
+  };
+
+  const clearImage = () => {
+    setImageFile(null);
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const visibleFilms = allFilms.slice(0, visibleCount);
   const hasMore = visibleCount < allFilms.length;
 
@@ -81,79 +135,146 @@ export function SearchPage() {
         <div className="text-[var(--term-mid)] text-[10px]">// no escape.</div>
       </div>
 
-      {/* Mode toggle */}
+      {/* Mode toggle — 3 tabs */}
       <div className="flex border-b border-[var(--term-dark)]">
-        <button
-          onClick={() => setMode("search")}
-          className={`flex-1 py-3 text-sm transition-colors border-r border-[var(--term-dark)] ${
-            mode === "search"
-              ? "bg-[var(--term-bright-10)] text-[var(--term-bright)]"
-              : "text-[var(--term-mid)] hover:text-[var(--term-bright)]"
-          }`}
-        >
-          {mode === "search" ? "▶ " : "  "}SEARCH
-        </button>
-        <button
-          onClick={() => setMode("mood")}
-          className={`flex-1 py-3 text-sm transition-colors ${
-            mode === "mood"
-              ? "bg-[var(--term-bright-10)] text-[var(--term-bright)]"
-              : "text-[var(--term-mid)] hover:text-[var(--term-bright)]"
-          }`}
-        >
-          {mode === "mood" ? "▶ " : "  "}MOOD
-        </button>
+        {(["search", "mood", "image"] as Mode[]).map((m, i) => (
+          <button
+            key={m}
+            onClick={() => setMode(m)}
+            className={`flex-1 py-3 text-xs transition-colors ${
+              i < 2 ? "border-r border-[var(--term-dark)]" : ""
+            } ${
+              mode === m
+                ? "bg-[var(--term-bright-10)] text-[var(--term-bright)]"
+                : "text-[var(--term-mid)] hover:text-[var(--term-bright)]"
+            }`}
+          >
+            {mode === m ? "▶ " : "  "}
+            {m === "search" ? "SEARCH" : m === "mood" ? "MOOD" : "IMAGE"}
+          </button>
+        ))}
       </div>
 
-      {/* Query input */}
-      <form onSubmit={handleSubmit} className="p-4 border-b border-[var(--term-dark)]">
-        <div className="text-[var(--term-dark)] text-[10px] mb-1.5 select-none">
-          root@reelscream:~$
-        </div>
-        <textarea
-          ref={textareaRef}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              run(query);
+      {/* ── SEARCH / MOOD input ── */}
+      {mode !== "image" && (
+        <form onSubmit={handleSubmit} className="p-4 border-b border-[var(--term-dark)]">
+          <div className="text-[var(--term-dark)] text-[10px] mb-1.5 select-none">
+            root@reelscream:~$
+          </div>
+          <textarea
+            ref={textareaRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                run(query);
+              }
+            }}
+            placeholder={
+              mode === "search"
+                ? "slow burn folk horror like Midsommar..."
+                : "something that will genuinely disturb me..."
             }
-          }}
-          placeholder={
-            mode === "search"
-              ? "slow burn folk horror like Midsommar..."
-              : "something that will genuinely disturb me..."
-          }
-          rows={3}
-          className="w-full bg-black border border-[var(--term-dark)] text-[var(--term-bright)] px-2 py-2 text-sm placeholder:text-[var(--term-dark)] focus:outline-none focus:border-[var(--term-bright)] resize-none"
-        />
-        <div className="flex gap-2 mt-2">
+            rows={3}
+            className="w-full bg-black border border-[var(--term-dark)] text-[var(--term-bright)] px-2 py-2 text-sm placeholder:text-[var(--term-dark)] focus:outline-none focus:border-[var(--term-bright)] resize-none"
+          />
+          <div className="flex gap-2 mt-2">
+            <button
+              type="submit"
+              disabled={loading || !query.trim()}
+              className="flex-1 py-2.5 border border-[var(--term-bright)] text-[var(--term-bright)] hover:bg-[var(--term-bright-10)] text-sm disabled:opacity-30 transition-colors"
+            >
+              {loading ? <span className="cursor">SCANNING</span> : "[EXECUTE]"}
+            </button>
+            <button
+              type="button"
+              onClick={handleRandom}
+              disabled={loading}
+              className="px-4 py-2.5 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] text-sm disabled:opacity-30 transition-colors"
+              title="Shuffle — pick something for me"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="miter" strokeLinecap="square">
+                {/* top arrow: left → right, steps down */}
+                <polyline points="1,4 5,4 11,12 15,12" />
+                <polyline points="12,10 15,12 12,14" />
+                {/* bottom arrow: right → left, steps up */}
+                <polyline points="15,4 11,4 5,12 1,12" />
+                <polyline points="4,2 1,4 4,6" />
+              </svg>
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* ── IMAGE upload ── */}
+      {mode === "image" && (
+        <div className="p-4 border-b border-[var(--term-dark)]">
+          <div className="text-[var(--term-dark)] text-[10px] mb-2 uppercase tracking-widest">
+            // drop an image — find films that feel like it
+          </div>
+
+          {/* Drop zone / preview */}
+          {!imagePreview ? (
+            <div
+              onDrop={handleDrop}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onClick={() => fileInputRef.current?.click()}
+              className={`relative flex flex-col items-center justify-center h-36 border cursor-pointer transition-colors select-none ${
+                dragOver
+                  ? "border-[var(--term-bright)] bg-[var(--term-bright-10)]"
+                  : "border-dashed border-[var(--term-dark)] hover:border-[var(--term-mid)]"
+              }`}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--term-dark)] mb-2">
+                <rect x="3" y="3" width="18" height="18" rx="0" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21,15 16,10 5,21" />
+              </svg>
+              <span className="text-[var(--term-dark)] text-xs font-mono">click or drag image here</span>
+              <span className="text-[var(--term-dark)] text-[10px] mt-1 font-mono opacity-50">jpg · png · webp</span>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileInput}
+                className="sr-only"
+              />
+            </div>
+          ) : (
+            <div className="relative">
+              <img
+                src={imagePreview}
+                alt="uploaded"
+                className="w-full h-36 object-cover border border-[var(--term-dark)]"
+              />
+              <button
+                onClick={clearImage}
+                className="absolute top-1 right-1 bg-black/80 text-[var(--term-bright)] text-xs px-1.5 py-0.5 font-mono hover:bg-black transition-colors"
+                title="Remove image"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           <button
-            type="submit"
-            disabled={loading || !query.trim()}
-            className="flex-1 py-2.5 border border-[var(--term-bright)] text-[var(--term-bright)] hover:bg-[var(--term-bright-10)] text-sm disabled:opacity-30 transition-colors"
+            onClick={() => run("", "image", nicheMin, nicheEnabled, imageFile ?? undefined)}
+            disabled={loading || !imageFile}
+            className="w-full mt-3 py-2.5 border border-[var(--term-bright)] text-[var(--term-bright)] hover:bg-[var(--term-bright-10)] text-sm disabled:opacity-30 transition-colors font-mono"
           >
-            {loading ? <span className="cursor">SCANNING</span> : "[EXECUTE]"}
+            {loading ? <span className="cursor">ANALYSING</span> : "[ANALYSE IMAGE]"}
           </button>
-          <button
-            type="button"
-            onClick={handleRandom}
-            disabled={loading}
-            className="px-4 py-2.5 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] text-sm disabled:opacity-30 transition-colors"
-            title="Shuffle — pick something for me"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="miter" strokeLinecap="square">
-              {/* top arrow: left → right, steps down */}
-              <polyline points="1,4 5,4 11,12 15,12" />
-              <polyline points="12,10 15,12 12,14" />
-              {/* bottom arrow: right → left, steps up */}
-              <polyline points="15,4 11,4 5,12 1,12" />
-              <polyline points="4,2 1,4 4,6" />
-            </svg>
-          </button>
+
+          {queryUsed && !loading && mode === "image" && (
+            <div className="mt-3 text-[10px] font-mono text-[var(--term-mid)] leading-snug border border-[var(--term-dark)] p-2">
+              <span className="text-[var(--term-dark)]">→ query: </span>
+              <span className="italic">{queryUsed}</span>
+            </div>
+          )}
         </div>
-      </form>
+      )}
 
       {/* Mood presets */}
       {mode === "mood" && (
@@ -287,13 +408,13 @@ export function SearchPage() {
           {/* Status */}
           <span className="text-black/50 text-xs font-mono truncate">
             {loading
-              ? "scanning..."
+              ? mode === "image" ? "analysing image..." : "scanning..."
               : allFilms.length > 0
               ? `// ${allFilms.length} records found`
               : "// awaiting query"}
           </span>
 
-          {queryUsed && mode === "mood" && !loading && (
+          {queryUsed && (mode === "mood") && !loading && (
             <span className="text-[10px] text-black/40 font-mono hidden sm:block truncate">
               → <span className="text-black/60">"{queryUsed}"</span>
             </span>
@@ -307,7 +428,9 @@ export function SearchPage() {
           {!loading && allFilms.length === 0 && !queryUsed && (
             <div className="flex flex-col items-center justify-center h-full text-center select-none">
               <div className="font-['VT323'] text-[100px] sm:text-[120px] leading-none text-black/10">?</div>
-              <div className="text-black/30 text-sm mt-2 font-mono">enter a query to begin</div>
+              <div className="text-black/30 text-sm mt-2 font-mono">
+                {mode === "image" ? "upload an image to begin" : "enter a query to begin"}
+              </div>
             </div>
           )}
 
@@ -321,14 +444,16 @@ export function SearchPage() {
           {/* Loading */}
           {loading && (
             <div className="text-center text-black/50 py-16 text-sm font-mono border border-black/20">
-              <span className="cursor">SCANNING DATABASE</span>
+              <span className="cursor">
+                {mode === "image" ? "ANALYSING IMAGE" : "SCANNING DATABASE"}
+              </span>
             </div>
           )}
 
           {/* Grid — 2 → 3 → 4 → 5 → 6 columns */}
           {!loading && visibleFilms.length > 0 && (
             <div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3 items-start">
                 {visibleFilms.map((film, i) => (
                   <FilmCard key={film.id} film={film} index={i} />
                 ))}
