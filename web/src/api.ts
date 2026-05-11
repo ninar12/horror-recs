@@ -26,6 +26,11 @@ export const api = {
       client.get("/search", { params: { q, ...opts } }),
     mood: (mood: string, opts?: { niche_min?: number; niche_max?: number }) =>
       client.get("/search/mood", { params: { mood, ...opts } }),
+    image: (file: File, opts?: { niche_min?: number; niche_max?: number }) => {
+      const form = new FormData();
+      form.append("file", file);
+      return client.post("/search/image", form, { params: opts });
+    },
   },
   watchlists: {
     list: () => client.get("/watchlists"),

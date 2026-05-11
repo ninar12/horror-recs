@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, UploadFile, File
 from pydantic import BaseModel
-from api.services.gemini import rerank_and_explain, generate_mood_query
+from api.services.gemini import rerank_and_explain, generate_mood_query, image_to_horror_query
 from api.services.pinecone_client import search_films
 from api.services.auth import get_optional_user_id
 from api.services.database import get_session, WatchHistory
+from api.services.film_lookup import enrich_with_posters
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
@@ -57,3 +58,20 @@ def mood_search(
     context = _get_user_context(user_id) if user_id else {}
     ranked = rerank_and_explain(expanded_query, candidates, context)
     return SearchResponse(films=ranked, total=len(ranked), query_used=expanded_query)
+
+
+@router.post("/image", response_model=SearchResponse)
+async def image_search(
+    file: UploadFile = File(...),
+    niche_min: int = Query(default=3, ge=1, le=10),
+    niche_max: int = Query(default=10, ge=1, le=10),
+    user_id: str | None = Depends(get_optional_user_id),
+):
+    """Analyse an uploaded image with Gemini Vision, then search for horror films that match its atmosphere."""
+    image_bytes = await file.read()
+    horror_query = image_to_horror_query(image_bytes, file.content_type or "image/jpeg")
+    niche_filter = {"niche_score": {"$gte": niche_min, "$lte": niche_max}}
+    candidates = search_films(horror_query, top_k=CANDIDATE_POOL, filter_dict=niche_filter)
+    context = _get_user_context(user_id) if user_id else {}
+    ranked = enrich_with_posters(rerank_and_explain(horror_query, candidates, context))
+    return SearchResponse(films=ranked, total=len(ranked), query_used=horror_query)

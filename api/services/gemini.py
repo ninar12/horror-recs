@@ -90,3 +90,23 @@ def generate_mood_query(mood_input: str) -> str:
 Mood: "{mood_input}"
 Return only the query string."""
     return _generate(prompt).strip()
+
+
+def image_to_horror_query(image_bytes: bytes, mime_type: str) -> str:
+    """Use Gemini Vision to turn an image into a horror-film atmosphere search query."""
+    from google.genai import types
+
+    response = _get_client().models.generate_content(
+        model="gemini-2.5-flash",
+        contents=[
+            types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+            """You are an expert horror film curator with deep knowledge of atmosphere and aesthetics.
+Analyse this image and describe what kind of horror film it evokes — focus on:
+colour palette and lighting, physical setting and time period, emotional tone and dread quality,
+visual texture (grainy, clinical, lush, stark), and any specific horror subgenres or directors it brings to mind.
+
+Return ONLY a 2-sentence search query a film database could use to find horror movies that feel like this image.
+No preamble, no explanation — just the query.""",
+        ],
+    )
+    return response.text.strip()
