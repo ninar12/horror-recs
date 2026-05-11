@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { SearchPage } from "./pages/Search";
 import { WatchlistsPage } from "./pages/Watchlists";
 import { AboutPage } from "./pages/About";
+import { FilmPage } from "./pages/FilmPage";
 import { AuthModal } from "./components/AuthModal";
 
 const THEMES = [
@@ -50,7 +51,7 @@ function Nav() {
           [DISCOVER]
         </NavLink>
         <NavLink to="/watchlists" className={({ isActive }) => isActive ? active : inactive}>
-          [WATCHLISTS]
+          [WATCHLIST]
         </NavLink>
         <NavLink to="/about" className={({ isActive }) => isActive ? active : inactive}>
           [ABOUT]
@@ -123,6 +124,7 @@ export default function App() {
             <Route path="/" element={<SearchPage />} />
             <Route path="/watchlists" element={<WatchlistsPage />} />
             <Route path="/about" element={<AboutPage />} />
+            <Route path="/film/:id" element={<FilmPage />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </div>

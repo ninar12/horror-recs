@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 
 interface Film {
@@ -24,6 +25,7 @@ interface Props {
   film: Film;
   watchlistId?: string;
   onAdded?: () => void;
+  onFindSimilar?: (film: Film) => void;
   index?: number;
 }
 
@@ -71,18 +73,37 @@ function FilmModal({
   film,
   watchlistId,
   onAdded,
+  onFindSimilar,
   onClose,
 }: {
   film: Film;
   watchlistId?: string;
   onAdded?: () => void;
+  onFindSimilar?: (film: Film) => void;
   onClose: () => void;
 }) {
   const [adding, setAdding] = useState(false);
   const [added, setAdded]   = useState(false);
+  const [similarFilms, setSimilarFilms] = useState<Film[]>([]);
+  const [loadingSimilar, setLoadingSimilar] = useState(false);
 
   const tier        = film.niche_score != null ? getNicheTier(film.niche_score) : null;
   const accentColor = tier?.color ?? "var(--term-bright)";
+
+  const fetchSimilar = async () => {
+    if (loadingSimilar || similarFilms.length > 0) return;
+    setLoadingSimilar(true);
+    try {
+      const res = await api.search.similar({
+        film_id: film.id, title: film.title,
+        synopsis: film.synopsis, genres: film.genres,
+        atmosphere: film.atmosphere,
+      });
+      setSimilarFilms(res.data.films || []);
+    } finally {
+      setLoadingSimilar(false);
+    }
+  };
 
   const letterboxdUrl = `https://letterboxd.com/search/${encodeURIComponent(film.title)}/`;
   const imdbUrl       = `https://www.imdb.com/find/?q=${encodeURIComponent(`${film.title} ${film.year ?? ""}`)}`;
@@ -101,10 +122,11 @@ function FilmModal({
     return () => { document.body.style.overflow = ""; };
   }, []);
 
-  const handleAdd = async () => {
-    if (!watchlistId) return;
+  const handleAdd = async (targetId?: string) => {
+    const id = targetId ?? watchlistId;
+    if (!id) return;
     setAdding(true);
-    await api.watchlists.addFilm(watchlistId, {
+    await api.watchlists.addFilm(id, {
       film_id: film.id,
       film_title: film.title,
       film_metadata: film,
@@ -112,6 +134,26 @@ function FilmModal({
     setAdded(true);
     setAdding(false);
     onAdded?.();
+  };
+
+  const openWatchlistPicker = async () => {
+    if (!localStorage.getItem("token")) return;
+    if (watchlistId) { handleAdd(); return; }
+    setAdding(true);
+    try {
+      const res = await api.watchlists.list();
+      let lists = res.data;
+      let id: string;
+      if (lists.length > 0) {
+        id = lists[0].id;
+      } else {
+        const created = await api.watchlists.create("Watchlist");
+        id = created.data.id;
+      }
+      await handleAdd(id);
+    } finally {
+      setAdding(false);
+    }
   };
 
   return createPortal(
@@ -124,18 +166,18 @@ function FilmModal({
 
       {/* Panel */}
       <div
-        className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[var(--term-panel)] border border-[var(--term-bright)] flex flex-col sm:flex-row"
+        className="relative z-10 w-full max-w-6xl max-h-[95vh] overflow-y-auto bg-[var(--term-panel)] border border-[var(--term-bright)] flex flex-col sm:flex-row"
         style={{ borderTopColor: accentColor, borderTopWidth: "3px" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Poster column */}
-        <div className="sm:w-48 shrink-0 bg-black">
+        <div className="sm:w-80 shrink-0 bg-black">
           {film.poster_url ? (
             <img
               src={film.poster_url}
               alt={film.title}
               className="w-full h-full object-cover"
-              style={{ maxHeight: "320px" }}
+              style={{ maxHeight: "480px" }}
               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
             />
           ) : (
@@ -279,16 +321,48 @@ function FilmModal({
               className="text-xs font-mono px-2 py-1 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] transition-colors">
               IMDB ↗
             </a>
-            {watchlistId && (
-              <button
-                onClick={handleAdd}
-                disabled={adding || added}
-                className="ml-auto text-xs font-mono px-3 py-1 border border-[var(--term-bright)] text-[var(--term-bright)] hover:bg-[var(--term-bright-10)] disabled:opacity-40 transition-colors"
-              >
-                {added ? "SAVED ✓" : adding ? "SAVING…" : "+ SAVE TO WATCHLIST"}
-              </button>
-            )}
+            <button
+              onClick={fetchSimilar}
+              disabled={loadingSimilar || similarFilms.length > 0}
+              className="text-xs font-mono px-2 py-1 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] disabled:opacity-40 transition-colors"
+            >
+              {loadingSimilar ? "SCANNING…" : similarFilms.length > 0 ? "SIMILAR ✓" : "∿ FIND SIMILAR"}
+            </button>
+            <button
+              onClick={openWatchlistPicker}
+              disabled={adding || added}
+              className="ml-auto text-xs font-mono px-3 py-1 border border-[var(--term-bright)] text-[var(--term-bright)] hover:bg-[var(--term-bright-10)] disabled:opacity-40 transition-colors"
+            >
+              {added ? "SAVED ✓" : adding ? "SAVING…" : "+ SAVE"}
+            </button>
           </div>
+
+          {/* Similar films strip */}
+          {(loadingSimilar || similarFilms.length > 0) && (
+            <div className="border-t border-[var(--term-dark)] pt-3 mt-2">
+              <div className="text-[9px] font-mono text-[var(--term-dark)] mb-2 uppercase tracking-widest">∿ similar films</div>
+              {loadingSimilar ? (
+                <div className="text-[var(--term-mid)] text-xs font-mono"><span className="cursor">SCANNING</span></div>
+              ) : (
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {similarFilms.map((f) => (
+                    <div key={f.id} className="shrink-0 w-40 cursor-pointer" onClick={() => { onFindSimilar?.(f); }}>
+                      {f.poster_url ? (
+                        <img src={f.poster_url} alt={f.title}
+                          className="w-full object-cover border border-[var(--term-dark)] hover:border-[var(--term-bright)] transition-colors"
+                          style={{ aspectRatio: "2/3" }}
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                      ) : (
+                        <div className="w-full bg-black border border-[var(--term-dark)] flex items-center justify-center text-[var(--term-dark)] text-2xl font-['VT323']" style={{ aspectRatio: "2/3" }}>?</div>
+                      )}
+                      <div className="text-[9px] font-['VT323'] text-[var(--term-bright)] mt-1 leading-tight line-clamp-2">{f.title}</div>
+                      <div className="text-[8px] font-mono text-[var(--term-dark)]">{f.year}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>,
@@ -298,8 +372,9 @@ function FilmModal({
 
 // ── Card (grid tile) ──────────────────────────────────────────────────────────
 
-export function FilmCard({ film, watchlistId, onAdded, index }: Props) {
+export function FilmCard({ film, watchlistId, onAdded, onFindSimilar, index }: Props) {
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
 
   const idx         = index !== undefined ? String(index + 1).padStart(2, "0") : "--";
   const tier        = film.niche_score != null ? getNicheTier(film.niche_score) : null;
@@ -315,7 +390,7 @@ export function FilmCard({ film, watchlistId, onAdded, index }: Props) {
       <div
         className="group relative flex flex-col bg-[var(--term-panel)] border border-[var(--term-dark)] hover:border-[var(--term-bright)] transition-colors cursor-pointer"
         style={{ borderTopColor: accentColor, borderTopWidth: "2px" }}
-        onClick={() => setOpen(true)}
+        onClick={() => navigate(`/film/${film.id}`, { state: { film } })}
       >
         {/* Poster */}
         <div className="relative w-full bg-black overflow-hidden" style={{ aspectRatio: "2/3" }}>
@@ -343,6 +418,16 @@ export function FilmCard({ film, watchlistId, onAdded, index }: Props) {
             >
               {tier.label} {film.niche_score}/10
             </span>
+          )}
+
+          {/* Find Similar — always visible at bottom of poster */}
+          {onFindSimilar && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onFindSimilar(film); }}
+              className="absolute bottom-0 inset-x-0 py-1.5 text-[10px] font-mono tracking-widest bg-black/70 text-[var(--term-bright)] hover:bg-black transition-colors"
+            >
+              ∿ FIND SIMILAR
+            </button>
           )}
         </div>
 
@@ -384,19 +469,22 @@ export function FilmCard({ film, watchlistId, onAdded, index }: Props) {
             </div>
           )}
 
-          {/* IMDb link */}
-          <a
-            href={imdbUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-1 mt-2 text-[9px] font-mono text-[var(--term-dark)] hover:text-[var(--term-bright)] transition-colors"
-          >
-            <span className="px-1 py-px border border-[var(--term-dark)] hover:border-[var(--term-bright)] transition-colors">
-              IMDb
-            </span>
-            <span>↗</span>
-          </a>
+          <div className="mt-auto pt-2 flex items-center justify-between">
+            {/* IMDb link */}
+            <a
+              href={imdbUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 text-[9px] font-mono text-[var(--term-dark)] hover:text-[var(--term-bright)] transition-colors"
+            >
+              <span className="px-1 py-px border border-[var(--term-dark)] hover:border-[var(--term-bright)] transition-colors">
+                IMDb
+              </span>
+              <span>↗</span>
+            </a>
+            <span className="text-[9px] font-mono text-[var(--term-dark)]">tap to save / details</span>
+          </div>
         </div>
       </div>
 
@@ -405,6 +493,7 @@ export function FilmCard({ film, watchlistId, onAdded, index }: Props) {
           film={film}
           watchlistId={watchlistId}
           onAdded={onAdded}
+          onFindSimilar={onFindSimilar}
           onClose={() => setOpen(false)}
         />
       )}

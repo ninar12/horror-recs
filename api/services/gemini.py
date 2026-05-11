@@ -33,8 +33,13 @@ def rerank_and_explain(
     query: str,
     candidates: list[dict],
     user_context: dict | None = None,
+    similar_to: str | None = None,
 ) -> list[dict]:
-    """Rerank candidates and generate match explanations using Gemini."""
+    """Rerank candidates and generate match explanations using Gemini.
+
+    If similar_to is provided, the prompt shifts to finding films with the same
+    tone/atmosphere as that title rather than matching a freeform query.
+    """
     context_str = ""
     if user_context:
         watched = user_context.get("watched_titles", [])
@@ -49,6 +54,7 @@ def rerank_and_explain(
                 "genres": c.get("genres", []),
                 "niche_score": c.get("niche_score", 5),
                 "synopsis": (c.get("synopsis") or "")[:120],
+                "atmosphere": (c.get("atmosphere") or "")[:80],
             }
             for c in candidates
             if c.get("title")
@@ -56,12 +62,28 @@ def rerank_and_explain(
         separators=(",", ":"),
     )
 
-    prompt = f"""Horror film expert. Query: "{query}"{context_str}
+    if similar_to:
+        prompt = f"""You are a horror film expert and curator with deep knowledge of international and obscure cinema.
+The user wants films with the same tone, atmosphere, and sensibility as: "{similar_to}"{context_str}
 
 Candidates: {candidates_json}
 
-Return JSON array of top 8, best match first. Each item: {{"id":"...","rank":1,"why":"one sentence why it fits","score":0.9}}
-Only valid JSON, no markdown."""
+Rank by how closely they share the *feel* of "{similar_to}" — not just genre overlap, but mood, pacing, and dread quality.
+Strongly prefer obscure and under-seen titles. Avoid mainstream picks unless they are genuinely the closest match.
+
+Return JSON array of top 8, best match first. Each item: {{"id":"...","rank":1,"why":"one sentence on the specific atmospheric similarity","score":0.9}}
+Return ONLY valid JSON, no markdown."""
+    else:
+        prompt = f"""You are a horror film expert and curator with deep knowledge of international and obscure cinema.
+Query: "{query}"{context_str}
+
+Candidates: {candidates_json}
+
+Rank the best matches. When films are equally relevant, STRONGLY prefer the more obscure and under-seen titles.
+Avoid defaulting to well-known mainstream picks unless they are clearly the best possible fit.
+
+Return JSON array of top 8, best match first. Each item: {{"id":"...","rank":1,"why":"one sentence why this film fits — mention what makes it distinctive","score":0.9}}
+Return ONLY valid JSON, no markdown."""
 
     try:
         text = _generate(prompt)
@@ -89,6 +111,20 @@ def generate_mood_query(mood_input: str) -> str:
     prompt = f"""Convert this horror movie mood into a concise search query (one line) capturing themes, tone, subgenres, atmosphere.
 Mood: "{mood_input}"
 Return only the query string."""
+    return _generate(prompt).strip()
+
+
+def expand_search_query(q: str) -> str:
+    """Rewrite any query into an atmospheric description for vibe-based retrieval."""
+    prompt = f"""You are a horror film expert. A user searched for: "{q}"
+
+This could be a film title, director name, subgenre, theme, era, or vibe description.
+Rewrite it as a 1-2 sentence atmospheric description capturing MOOD, TONE, DREAD QUALITY, and AESTHETIC.
+
+IMPORTANT: If the query mentions a specific decade or era (70s, 1980s, etc.) you MUST preserve
+that temporal context explicitly in your rewrite (e.g. "1970s", "made in the eighties").
+
+Do NOT mention specific film titles. Return ONLY the rewritten description."""
     return _generate(prompt).strip()
 
 

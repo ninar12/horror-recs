@@ -22,7 +22,7 @@ export const api = {
     },
   },
   search: {
-    query: (q: string, opts?: { niche_min?: number; niche_max?: number }) =>
+    query: (q: string, opts?: { niche_min?: number; niche_max?: number; exclude?: string }) =>
       client.get("/search", { params: { q, ...opts } }),
     mood: (mood: string, opts?: { niche_min?: number; niche_max?: number }) =>
       client.get("/search/mood", { params: { mood, ...opts } }),
@@ -31,6 +31,17 @@ export const api = {
       form.append("file", file);
       return client.post("/search/image", form, { params: opts });
     },
+    similar: (
+      film: {
+        film_id: string;
+        title: string;
+        synopsis?: string;
+        genres?: string[];
+        themes?: string[];
+        atmosphere?: string;
+      },
+      opts?: { niche_min?: number }
+    ) => client.post("/search/similar", film, { params: opts }),
   },
   watchlists: {
     list: () => client.get("/watchlists"),

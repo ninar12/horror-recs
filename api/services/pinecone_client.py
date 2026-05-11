@@ -20,6 +20,8 @@ def search_films(
     query_text: str,
     top_k: int = 50,
     filter_dict: dict | None = None,
+    year_min: int | None = None,
+    year_max: int | None = None,
 ) -> list[dict]:
     """Query Pinecone using integrated embedding — send text, Pinecone embeds it."""
     index = get_pinecone_index()
@@ -43,9 +45,14 @@ def search_films(
         niche_score = float(fields.get("niche_score", 5))
         if not (niche_min <= niche_score <= niche_max):
             continue
+        year = fields.get("year")
+        if year_min is not None and year is not None and float(year) < year_min:
+            continue
+        if year_max is not None and year is not None and float(year) > year_max:
+            continue
         similarity = hit.get("_score", 0.0)
         niche = niche_score / 10.0
-        blended_score = similarity * 0.7 + niche * 0.3
+        blended_score = similarity * 0.6 + niche * 0.4  # niche weighted higher to surface obscure films
 
         record = {
             "id": hit["_id"],

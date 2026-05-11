@@ -1,112 +1,121 @@
-import { useState, useRef, useCallback } from "react";
+﻿import { useState, useRef, useCallback } from "react";
 import { api } from "../api";
 import { FilmCard } from "../components/FilmCard";
 
 const PAGE_SIZE = 12;
 
-const MOOD_PRESETS = [
+const QUERIES = [
   "genuinely terrifying, slow burn",
   "fun slasher night with friends",
   "psychological mindfuck",
   "supernatural atmospheric dread",
   "creature feature chaos",
   "80s nostalgia horror",
-];
-
-const RANDOM_QUERIES = [
   "deeply obscure folk horror rituals",
   "surreal body horror nightmare",
   "forgotten 70s occult horror",
-  "experimental extreme slow cinema horror",
-  "obscure eastern european gothic horror",
-  "lost vhs found footage dread",
+  "experimental extreme slow cinema",
+  "obscure eastern european gothic",
+  "lost vhs found footage paranoia",
   "cosmic horror unknowable entity",
-  "rural isolation psychological breakdown",
+  "rural isolation psychological collapse",
+  "giallo italian mystery murder",
+  "new french extremity transgressive",
+  "silent supernatural haunting melancholy",
+  "j-horror cursed object possession",
+  'femcel horror tragic loneliness',
+  'home invasion tense claustrophobia',
+  'cult horror mind control manipulation',
+  'zombie outbreak societal collapse',
+  'vampire gothic romance horror',
+  'werewolf primal transformation horror',
+  'korean horror twisted family secrets',
+  '2000s teen horror high school',
+  'indie horror experimental narrative',
+  'influencer horror social media obsession',
+ 'lgbtq+ horror identity and transformation',
+ 'lost middle aged white man horror midlife crisis',
+ 'cannibalism horror taboo and survival',
 ];
-
-type Mode = "search" | "mood" | "image";
 
 export function SearchPage() {
   const [query, setQuery] = useState("");
-  const [mode, setMode] = useState<Mode>("search");
   const [allFilms, setAllFilms] = useState<any[]>([]);
-  const [_seenIds, setSeenIds] = useState<Set<string>>(new Set());
+  const seenIds = useRef<Set<string>>(
+    (() => { try { const s = localStorage.getItem("seen-ids"); return s ? new Set<string>(JSON.parse(s)) : new Set<string>(); } catch { return new Set<string>(); } })()
+  );
+  const [seenCount, setSeenCount] = useState(() => seenIds.current.size);
+
+  const persistSeen = () => {
+    try {
+      localStorage.setItem("seen-ids", JSON.stringify([...seenIds.current].slice(-200)));
+    } catch {}
+  };
+  const [picksOpen, setPicksOpen] = useState(true);
+  const [themesOpen, setThemesOpen] = useState(true);
+  const [visiblePresets, setVisiblePresets] = useState(() => [...QUERIES].sort(() => Math.random() - 0.5).slice(0, 3));
+
+  const rotatePresets = () => setVisiblePresets([...QUERIES].sort(() => Math.random() - 0.5).slice(0, 3));
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loading, setLoading] = useState(false);
   const [queryUsed, setQueryUsed] = useState("");
   const [nicheMin, setNicheMin] = useState(3);
   const [nicheEnabled, setNicheEnabled] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // Image mode state
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const run = async (q: string, runMode = mode, nMin = nicheMin, nEnabled = nicheEnabled, imgFile?: File) => {
-    if (runMode !== "image" && !q.trim()) return;
-    if (runMode === "image" && !imgFile) return;
+  const run = async (q: string, imgFile?: File) => {
+    const useImage = imgFile ?? imageFile;
+    if (!useImage && !q.trim()) return;
     setLoading(true);
     setAllFilms([]);
-    setSeenIds(new Set());
+    rotatePresets();
     setVisibleCount(PAGE_SIZE);
     setSidebarOpen(false);
-    const effectiveMin = nEnabled ? nMin : 1;
+    const effectiveMin = nicheEnabled ? nicheMin : 1;
     try {
       let res;
-      if (runMode === "search") {
-        res = await api.search.query(q, { niche_min: effectiveMin });
-      } else if (runMode === "mood") {
-        res = await api.search.mood(q, { niche_min: effectiveMin });
+      if (useImage) {
+        res = await api.search.image(useImage, { niche_min: effectiveMin });
       } else {
-        res = await api.search.image(imgFile!, { niche_min: effectiveMin });
+        const exclude = [...seenIds.current].slice(-50).join(",");
+        res = await api.search.query(q, { niche_min: effectiveMin, exclude });
       }
       const films: any[] = res.data.films || [];
-      // Deduplicate against already-seen IDs (fresh search clears seenIds above)
-      const freshIds = new Set<string>();
-      const deduped = films.filter((f) => {
-        if (freshIds.has(f.id)) return false;
-        freshIds.add(f.id);
-        return true;
-      });
+      const deduped = films.filter((f) => !seenIds.current.has(f.id));
+      deduped.forEach((f) => seenIds.current.add(f.id));
+      persistSeen();
+      setSeenCount(seenIds.current.size);
       setAllFilms(deduped);
-      setSeenIds(freshIds);
       setQueryUsed(res.data.query_used || q);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    run(query);
-  };
+  const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); run(query); };
 
   const handleRandom = () => {
-    const q = RANDOM_QUERIES[Math.floor(Math.random() * RANDOM_QUERIES.length)];
+    const q = QUERIES[Math.floor(Math.random() * QUERIES.length)];
     setQuery(q);
-    setMode("search");
-    run(q, "search");
+    run(q);
   };
 
   const handleImageFile = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) return;
     setImageFile(file);
-    const url = URL.createObjectURL(file);
-    setImagePreview(url);
+    setImagePreview(URL.createObjectURL(file));
   }, []);
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setDragOver(false);
-      const file = e.dataTransfer.files[0];
-      if (file) handleImageFile(file);
-    },
-    [handleImageFile]
-  );
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleImageFile(file);
+  }, [handleImageFile]);
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -123,234 +132,109 @@ export function SearchPage() {
   const visibleFilms = allFilms.slice(0, visibleCount);
   const hasMore = visibleCount < allFilms.length;
 
-  // ── Sidebar contents (shared between mobile overlay + desktop panel) ──────
   const sidebarContents = (
     <>
-      {/* Logo — desktop only (mobile has nav bar) */}
       <div className="hidden md:block p-5 border-b border-[var(--term-dark)]">
-        <div className="text-[var(--term-bright)] font-['VT323'] text-5xl tracking-widest leading-none">
-          REELSCREAM
-        </div>
-        <div className="text-[var(--term-mid)] text-[10px] mt-1">// AI horror discovery · v1.0</div>
+        <div className="text-[var(--term-bright)] font-['VT323'] text-5xl tracking-widest leading-none">REELSCREAM</div>
+        <div className="text-[var(--term-mid)] text-[10px] mt-1">// AI horror discovery</div>
         <div className="text-[var(--term-mid)] text-[10px]">// no escape.</div>
       </div>
 
-      {/* Mode toggle — 3 tabs */}
-      <div className="flex border-b border-[var(--term-dark)]">
-        {(["search", "mood", "image"] as Mode[]).map((m, i) => (
-          <button
-            key={m}
-            onClick={() => setMode(m)}
-            className={`flex-1 py-3 text-xs transition-colors ${
-              i < 2 ? "border-r border-[var(--term-dark)]" : ""
-            } ${
-              mode === m
-                ? "bg-[var(--term-bright-10)] text-[var(--term-bright)]"
-                : "text-[var(--term-mid)] hover:text-[var(--term-bright)]"
-            }`}
-          >
-            {mode === m ? "▶ " : "  "}
-            {m === "search" ? "SEARCH" : m === "mood" ? "MOOD" : "IMAGE"}
-          </button>
-        ))}
-      </div>
-
-      {/* ── SEARCH / MOOD input ── */}
-      {mode !== "image" && (
-        <form onSubmit={handleSubmit} className="p-4 border-b border-[var(--term-dark)]">
-          <div className="text-[var(--term-dark)] text-[10px] mb-1.5 select-none">
-            root@reelscream:~$
-          </div>
-          <textarea
-            ref={textareaRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                run(query);
-              }
-            }}
-            placeholder={
-              mode === "search"
-                ? "slow burn folk horror like Midsommar..."
-                : "something that will genuinely disturb me..."
-            }
-            rows={3}
-            className="w-full bg-black border border-[var(--term-dark)] text-[var(--term-bright)] px-2 py-2 text-sm placeholder:text-[var(--term-dark)] focus:outline-none focus:border-[var(--term-bright)] resize-none"
-          />
-          <div className="flex gap-2 mt-2">
-            <button
-              type="submit"
-              disabled={loading || !query.trim()}
-              className="flex-1 py-2.5 border border-[var(--term-bright)] text-[var(--term-bright)] hover:bg-[var(--term-bright-10)] text-sm disabled:opacity-30 transition-colors"
-            >
-              {loading ? <span className="cursor">SCANNING</span> : "[EXECUTE]"}
-            </button>
-            <button
-              type="button"
-              onClick={handleRandom}
-              disabled={loading}
-              className="px-4 py-2.5 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] text-sm disabled:opacity-30 transition-colors"
-              title="Shuffle — pick something for me"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="miter" strokeLinecap="square">
-                {/* top arrow: left → right, steps down */}
-                <polyline points="1,4 5,4 11,12 15,12" />
-                <polyline points="12,10 15,12 12,14" />
-                {/* bottom arrow: right → left, steps up */}
-                <polyline points="15,4 11,4 5,12 1,12" />
-                <polyline points="4,2 1,4 4,6" />
-              </svg>
+      <form onSubmit={handleSubmit} className="p-4 border-b border-[var(--term-dark)]"
+        onDrop={handleDrop}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}>
+        <div className="text-[var(--term-dark)] text-[10px] mb-1.5 select-none">root@reelscream:~$</div>
+        {imagePreview && (
+          <div className="relative mb-2">
+            <img src={imagePreview} alt="attached" className="w-full h-28 object-cover border border-[var(--term-bright)]" />
+            <button type="button" onClick={clearImage}
+              className="absolute top-1 right-1 bg-black/80 text-[var(--term-bright)] text-xs px-1.5 py-0.5 font-mono hover:bg-black">
+              X
             </button>
           </div>
-        </form>
-      )}
-
-      {/* ── IMAGE upload ── */}
-      {mode === "image" && (
-        <div className="p-4 border-b border-[var(--term-dark)]">
-          <div className="text-[var(--term-dark)] text-[10px] mb-2 uppercase tracking-widest">
-            // drop an image — find films that feel like it
-          </div>
-
-          {/* Drop zone / preview */}
-          {!imagePreview ? (
-            <div
-              onDrop={handleDrop}
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onClick={() => fileInputRef.current?.click()}
-              className={`relative flex flex-col items-center justify-center h-36 border cursor-pointer transition-colors select-none ${
-                dragOver
-                  ? "border-[var(--term-bright)] bg-[var(--term-bright-10)]"
-                  : "border-dashed border-[var(--term-dark)] hover:border-[var(--term-mid)]"
-              }`}
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--term-dark)] mb-2">
-                <rect x="3" y="3" width="18" height="18" rx="0" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21,15 16,10 5,21" />
-              </svg>
-              <span className="text-[var(--term-dark)] text-xs font-mono">click or drag image here</span>
-              <span className="text-[var(--term-dark)] text-[10px] mt-1 font-mono opacity-50">jpg · png · webp</span>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileInput}
-                className="sr-only"
-              />
-            </div>
-          ) : (
-            <div className="relative">
-              <img
-                src={imagePreview}
-                alt="uploaded"
-                className="w-full h-36 object-cover border border-[var(--term-dark)]"
-              />
-              <button
-                onClick={clearImage}
-                className="absolute top-1 right-1 bg-black/80 text-[var(--term-bright)] text-xs px-1.5 py-0.5 font-mono hover:bg-black transition-colors"
-                title="Remove image"
-              >
-                ✕
-              </button>
-            </div>
-          )}
-
-          <button
-            onClick={() => run("", "image", nicheMin, nicheEnabled, imageFile ?? undefined)}
-            disabled={loading || !imageFile}
-            className="w-full mt-3 py-2.5 border border-[var(--term-bright)] text-[var(--term-bright)] hover:bg-[var(--term-bright-10)] text-sm disabled:opacity-30 transition-colors font-mono"
-          >
-            {loading ? <span className="cursor">ANALYSING</span> : "[ANALYSE IMAGE]"}
+        )}
+        <textarea ref={textareaRef} value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); run(query); } }}
+          placeholder={imagePreview ? "optional: add context for the image..." : "describe a vibe, mood, film title, or drag a photo here..."}
+          rows={3}
+          className={`w-full bg-black border text-[var(--term-bright)] px-2 py-2 text-sm placeholder:text-[var(--term-dark)] focus:outline-none resize-none transition-colors ${dragOver ? "border-[var(--term-bright)]" : "border-[var(--term-dark)] focus:border-[var(--term-bright)]"}`}
+        />
+        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileInput} className="sr-only" />
+        <div className="flex gap-2 mt-2">
+          <button type="submit" disabled={loading || (!query.trim() && !imageFile)}
+            className="flex-1 py-2.5 border border-[var(--term-bright)] text-[var(--term-bright)] hover:bg-[var(--term-bright-10)] text-sm disabled:opacity-30 transition-colors">
+            {loading ? <span className="cursor">SCANNING</span> : "[EXECUTE]"}
           </button>
-
-          {queryUsed && !loading && mode === "image" && (
-            <div className="mt-3 text-[10px] font-mono text-[var(--term-mid)] leading-snug border border-[var(--term-dark)] p-2">
-              <span className="text-[var(--term-dark)]">→ query: </span>
-              <span className="italic">{queryUsed}</span>
-            </div>
-          )}
+          <button type="button" onClick={() => fileInputRef.current?.click()} disabled={loading}
+            className="px-3 py-2.5 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] text-sm disabled:opacity-30 transition-colors"
+            title="Attach image">
+            IMG
+          </button>
+          <button type="button" onClick={handleRandom} disabled={loading}
+            className="px-4 py-2.5 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] text-sm disabled:opacity-30 transition-colors"
+            title="Shuffle">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <polyline points="1,4 5,4 11,12 15,12" /><polyline points="12,10 15,12 12,14" />
+              <polyline points="15,4 11,4 5,12 1,12" /><polyline points="4,2 1,4 4,6" />
+            </svg>
+          </button>
         </div>
-      )}
+      </form>
 
-      {/* Mood presets */}
-      {mode === "mood" && (
-        <div className="p-4 border-b border-[var(--term-dark)]">
-          <div className="text-[var(--term-dark)] text-[10px] mb-2 uppercase tracking-widest">// mood presets</div>
-          <div className="flex flex-col gap-1">
-            {MOOD_PRESETS.map((p) => (
-              <button
-                key={p}
-                onClick={() => { setQuery(p); run(p, "mood"); }}
-                className="text-left text-xs px-2 py-2 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] transition-colors"
-              >
+      <div className="border-b border-[var(--term-dark)]">
+        <button onClick={() => setPicksOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-2.5 text-[10px] uppercase tracking-widest text-[var(--term-dark)] hover:text-[var(--term-mid)] transition-colors">
+          <span>// quick picks</span>
+          <span>{picksOpen ? "−" : "+"}</span>
+        </button>
+        {picksOpen && (
+          <div className="px-4 pb-3 flex flex-col gap-1">
+            {visiblePresets.map((p) => (
+              <button key={p} onClick={() => { setQuery(p); run(p); }}
+                className="text-left text-xs px-2 py-2 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] transition-colors">
                 &gt; {p}
               </button>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Niche filter */}
+      <div className="border-b border-[var(--term-dark)]">
+        <button onClick={() => setThemesOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-2.5 text-[10px] uppercase tracking-widest text-[var(--term-dark)] hover:text-[var(--term-mid)] transition-colors">
+          <span>// themes</span>
+          <span>{themesOpen ? "−" : "+"}</span>
+        </button>
+        {themesOpen && (
+          <div className="px-4 pb-3 flex flex-wrap gap-1.5">
+            {["slasher","folk horror","supernatural","body horror","found footage","giallo","possession","haunted house","psychological","zombie","vampire","werewolf","cult","cosmic","gore","j-horror","new french extremity","home invasion"].map((t) => (
+              <button key={t} onClick={() => { setQuery(t); run(t); }}
+                className="text-[10px] px-2 py-1 border border-[var(--term-dark)] text-[var(--term-dark)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] transition-colors capitalize">
+                {t}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="p-4">
-        {/* Toggle row */}
         <div className="flex items-center justify-between mb-3">
-          <span className="text-[var(--term-dark)] text-[10px] uppercase tracking-widest">
-            // niche filter
-          </span>
-          <button
-            onClick={() => setNicheEnabled((v) => !v)}
-            className={`text-[10px] font-mono px-2 py-px border transition-colors ${
-              nicheEnabled
-                ? "border-[var(--term-bright)] text-[var(--term-bright)] bg-[var(--term-bright-10)]"
-                : "border-[var(--term-dark)] text-[var(--term-dark)]"
-            }`}
-          >
+          <span className="text-[var(--term-dark)] text-[10px] uppercase tracking-widest">// niche filter</span>
+          <button onClick={() => setNicheEnabled((v) => !v)}
+            className={`text-[10px] font-mono px-2 py-px border transition-colors ${nicheEnabled ? "border-[var(--term-bright)] text-[var(--term-bright)] bg-[var(--term-bright-10)]" : "border-[var(--term-dark)] text-[var(--term-dark)]"}`}>
             {nicheEnabled ? "ON" : "OFF"}
           </button>
         </div>
-
-        {/* Slider — dimmed when disabled */}
         <div className={`transition-opacity ${nicheEnabled ? "opacity-100" : "opacity-30 pointer-events-none"}`}>
-          <div className="text-[var(--term-dark)] text-[10px] mb-2">
-            floor: <span className="text-[var(--term-bright)]">{nicheMin}/10</span>
-          </div>
-          <input
-            type="range"
-            min={1}
-            max={9}
-            value={nicheMin}
-            onChange={(e) => setNicheMin(Number(e.target.value))}
-            className="w-full accent-[var(--term-bright)] h-1 cursor-pointer"
-          />
-          <div className="flex justify-between text-[9px] text-[var(--term-dark)] mt-1">
-            <span>mainstream</span>
-            <span>deep cut</span>
-          </div>
+          <div className="text-[var(--term-dark)] text-[10px] mb-2">floor: <span className="text-[var(--term-bright)]">{nicheMin}/10</span></div>
+          <input type="range" min={1} max={9} value={nicheMin} onChange={(e) => setNicheMin(Number(e.target.value))}
+            className="w-full accent-[var(--term-bright)] h-1 cursor-pointer" />
+          <div className="flex justify-between text-[9px] text-[var(--term-dark)] mt-1"><span>mainstream</span><span>deep cut</span></div>
         </div>
-
-        {/* Hint */}
-        <p className={`text-[10px] font-mono mt-2 leading-snug transition-colors ${
-          !nicheEnabled
-            ? "text-[var(--term-dark)]"
-            : nicheMin >= 8
-            ? "text-[#e53935]"
-            : nicheMin >= 6
-            ? "text-[#f9a825]"
-            : "text-[var(--term-dark)]"
-        }`}>
-          {!nicheEnabled
-            ? "// niche filter off — all films included"
-            : nicheMin >= 8
-            ? "// deep cuts only — expect very few results"
-            : nicheMin >= 6
-            ? "// mainstream filtered out — fewer results"
-            : nicheMin >= 4
-            ? "// hidden gems and above"
-            : "// all films included"}
+        <p className={`text-[10px] font-mono mt-2 leading-snug ${!nicheEnabled ? "text-[var(--term-dark)]" : nicheMin >= 8 ? "text-[#e53935]" : nicheMin >= 6 ? "text-[#f9a825]" : "text-[var(--term-dark)]"}`}>
+          {!nicheEnabled ? "// niche filter off" : nicheMin >= 8 ? "// deep cuts only" : nicheMin >= 6 ? "// mainstream filtered" : nicheMin >= 4 ? "// hidden gems and above" : "// all films included"}
         </p>
       </div>
     </>
@@ -358,121 +242,69 @@ export function SearchPage() {
 
   return (
     <div className="flex h-full overflow-hidden bg-black">
-
-      {/* ── MOBILE SIDEBAR OVERLAY ── */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-        >
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-40 md:hidden" onClick={() => setSidebarOpen(false)}>
           <div className="absolute inset-0 bg-black/60" />
-          {/* Drawer */}
-          <aside
-            className="absolute left-0 top-0 h-full w-80 bg-[var(--term-panel)] border-r border-[var(--term-dark)] overflow-y-auto z-50"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Close row */}
+          <aside className="absolute left-0 top-0 h-full w-80 bg-[var(--term-panel)] border-r border-[var(--term-dark)] overflow-y-auto z-50"
+            onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--term-dark)]">
               <span className="text-[var(--term-bright)] font-['VT323'] text-2xl tracking-widest">REELSCREAM</span>
-              <button
-                onClick={() => setSidebarOpen(false)}
-                className="text-[var(--term-mid)] hover:text-[var(--term-bright)] text-xl leading-none"
-              >
-                ✕
-              </button>
+              <button onClick={() => setSidebarOpen(false)} className="text-[var(--term-mid)] hover:text-[var(--term-bright)] text-xl">X</button>
             </div>
             {sidebarContents}
           </aside>
         </div>
       )}
-
-      {/* ── DESKTOP SIDEBAR ── */}
       <aside className="hidden md:flex w-72 shrink-0 flex-col border-r border-[var(--term-dark)] bg-[var(--term-panel)] overflow-y-auto">
         {sidebarContents}
       </aside>
-
-      {/* ── RIGHT PANEL ── */}
       <main className="flex-1 flex flex-col overflow-hidden bg-[var(--term-bright)]">
-
-        {/* Top bar */}
         <div className="px-4 py-2.5 border-b border-black/20 flex items-center gap-3 shrink-0">
-          {/* Mobile menu button */}
-          <button
-            className="md:hidden text-black/60 hover:text-black text-sm font-mono border border-black/20 px-2 py-1 shrink-0"
-            onClick={() => setSidebarOpen(true)}
-          >
-            ☰ SEARCH
+          <button className="md:hidden text-black/60 hover:text-black text-sm font-mono border border-black/20 px-2 py-1 shrink-0" onClick={() => setSidebarOpen(true)}>
+            MENU
           </button>
-
-          {/* Status */}
           <span className="text-black/50 text-xs font-mono truncate">
-            {loading
-              ? mode === "image" ? "analysing image..." : "scanning..."
-              : allFilms.length > 0
-              ? `// ${allFilms.length} records found`
-              : "// awaiting query"}
+            {loading ? "scanning..." : allFilms.length > 0 ? `// ${allFilms.length} records found` : "// awaiting query"}
           </span>
-
-          {queryUsed && (mode === "mood") && !loading && (
-            <span className="text-[10px] text-black/40 font-mono hidden sm:block truncate">
-              → <span className="text-black/60">"{queryUsed}"</span>
-            </span>
+          {seenCount > 0 && !loading && (
+            <button onClick={() => { seenIds.current.clear(); setSeenCount(0); localStorage.removeItem("seen-ids"); }}
+              className="ml-auto text-[9px] font-mono text-black/30 hover:text-black/60 transition-colors shrink-0">
+              reset seen ({seenCount})
+            </button>
           )}
         </div>
-
-        {/* Scrollable results */}
         <div className="flex-1 overflow-y-auto px-3 py-3 sm:px-5 sm:py-4">
-
-          {/* Empty state */}
           {!loading && allFilms.length === 0 && !queryUsed && (
             <div className="flex flex-col items-center justify-center h-full text-center select-none">
               <div className="font-['VT323'] text-[100px] sm:text-[120px] leading-none text-black/10">?</div>
-              <div className="text-black/30 text-sm mt-2 font-mono">
-                {mode === "image" ? "upload an image to begin" : "enter a query to begin"}
-              </div>
+              <div className="text-black/30 text-sm mt-2 font-mono">describe a vibe, paste a title, or drop an image</div>
             </div>
           )}
-
-          {/* No results */}
           {!loading && allFilms.length === 0 && queryUsed && (
-            <div className="text-center text-black/50 py-16 text-sm font-mono border border-black/20">
-              // NO RECORDS FOUND
-            </div>
+            <div className="text-center text-black/50 py-16 text-sm font-mono border border-black/20">// NO RECORDS FOUND</div>
           )}
-
-          {/* Loading */}
           {loading && (
             <div className="text-center text-black/50 py-16 text-sm font-mono border border-black/20">
-              <span className="cursor">
-                {mode === "image" ? "ANALYSING IMAGE" : "SCANNING DATABASE"}
-              </span>
+              <span className="cursor">SCANNING DATABASE</span>
             </div>
           )}
-
-          {/* Grid — 2 → 3 → 4 → 5 → 6 columns */}
           {!loading && visibleFilms.length > 0 && (
             <div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3 items-start">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3">
                 {visibleFilms.map((film, i) => (
                   <FilmCard key={film.id} film={film} index={i} />
                 ))}
               </div>
-
               {hasMore && (
-                <button
-                  onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-                  className="w-full mt-4 py-3 border border-black/20 hover:border-black/60 text-black/40 hover:text-black text-sm font-mono transition-colors"
-                >
-                  &gt; LOAD MORE ({allFilms.length - visibleCount} remaining)
+                <button onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                  className="w-full mt-4 py-3 border border-black/20 hover:border-black/60 text-black/40 hover:text-black text-sm font-mono transition-colors">
+                  LOAD MORE ({allFilms.length - visibleCount} remaining)
                 </button>
               )}
             </div>
           )}
-
         </div>
       </main>
-
     </div>
   );
 }
