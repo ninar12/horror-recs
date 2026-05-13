@@ -46,7 +46,6 @@ export function SearchPage() {
   const seenIds = useRef<Set<string>>(
     (() => { try { const s = localStorage.getItem("seen-ids"); return s ? new Set<string>(JSON.parse(s)) : new Set<string>(); } catch { return new Set<string>(); } })()
   );
-  const [seenCount, setSeenCount] = useState(() => seenIds.current.size);
 
   const persistSeen = () => {
     try {
@@ -108,7 +107,6 @@ export function SearchPage() {
       const deduped = films.filter((f) => !seenIds.current.has(f.id));
       deduped.forEach((f) => seenIds.current.add(f.id));
       persistSeen();
-      setSeenCount(seenIds.current.size);
       setAllFilms(deduped);
       setQueryUsed(res.data.query_used || q);
     } finally {
