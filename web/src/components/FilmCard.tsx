@@ -84,6 +84,9 @@ function FilmModal({
 }) {
   const [adding, setAdding] = useState(false);
   const [added, setAdded]   = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [savedItemId, setSavedItemId] = useState<string | null>(null);
+  const [savedWatchlistId, setSavedWatchlistId] = useState<string | null>(null);
   const [similarFilms, setSimilarFilms] = useState<Film[]>([]);
   const [loadingSimilar, setLoadingSimilar] = useState(false);
 
@@ -122,17 +125,52 @@ function FilmModal({
     return () => { document.body.style.overflow = ""; };
   }, []);
 
+  // Check if film is already saved
+  useEffect(() => {
+    if (!localStorage.getItem("token")) return;
+    (async () => {
+      try {
+        const res = await api.watchlists.list();
+        const lists = res.data;
+        if (!lists.length) return;
+        const detail = await api.watchlists.get(lists[0].id);
+        const items: any[] = detail.data.items || [];
+        const found = items.find((item) => item.film_id === film.id);
+        if (found) {
+          setAdded(true);
+          setSavedItemId(found.id);
+          setSavedWatchlistId(lists[0].id);
+        }
+      } catch {}
+    })();
+  }, [film.id]);
+
+  const handleRemove = async () => {
+    if (!savedWatchlistId || !savedItemId) return;
+    setRemoving(true);
+    try {
+      await api.watchlists.removeFilm(savedWatchlistId, savedItemId);
+      setAdded(false);
+      setSavedItemId(null);
+      setSavedWatchlistId(null);
+    } finally {
+      setRemoving(false);
+    }
+  };
+
   const handleAdd = async (targetId?: string) => {
     const id = targetId ?? watchlistId;
     if (!id) return;
     setAdding(true);
-    await api.watchlists.addFilm(id, {
+    const res = await api.watchlists.addFilm(id, {
       film_id: film.id,
       film_title: film.title,
       film_metadata: film,
     });
     setAdded(true);
     setAdding(false);
+    setSavedWatchlistId(id);
+    if (res.data?.id) setSavedItemId(res.data.id);
     onAdded?.();
   };
 
@@ -329,11 +367,16 @@ function FilmModal({
               {loadingSimilar ? "SCANNING…" : similarFilms.length > 0 ? "SIMILAR ✓" : "∿ FIND SIMILAR"}
             </button>
             <button
-              onClick={openWatchlistPicker}
-              disabled={adding || added}
-              className="ml-auto text-xs font-mono px-3 py-1 border border-[var(--term-bright)] text-[var(--term-bright)] hover:bg-[var(--term-bright-10)] disabled:opacity-40 transition-colors"
+              onClick={added ? handleRemove : openWatchlistPicker}
+              disabled={adding || removing}
+              title={added ? "Click to remove from watchlist" : "Save to watchlist"}
+              className={`ml-auto text-xs font-mono px-3 py-1 border transition-colors disabled:opacity-40 ${
+                added
+                  ? "border-[var(--term-mid)] text-[var(--term-mid)] hover:border-[#e53935] hover:text-[#e53935]"
+                  : "border-[var(--term-bright)] text-[var(--term-bright)] hover:bg-[var(--term-bright-10)]"
+              }`}
             >
-              {added ? "SAVED ✓" : adding ? "SAVING…" : "+ SAVE"}
+              {removing ? "REMOVING…" : added ? "SAVED ✓" : adding ? "SAVING…" : "+ SAVE"}
             </button>
           </div>
 

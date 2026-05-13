@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useCallback } from "react";
+﻿import { useState, useRef, useCallback, useEffect } from "react";
 import { api } from "../api";
 import { FilmCard } from "../components/FilmCard";
 
@@ -40,7 +40,9 @@ const QUERIES = [
 
 export function SearchPage() {
   const [query, setQuery] = useState("");
-  const [allFilms, setAllFilms] = useState<any[]>([]);
+  const [allFilms, setAllFilms] = useState<any[]>(() => {
+    try { const s = sessionStorage.getItem("search-films"); return s ? JSON.parse(s) : []; } catch { return []; }
+  });
   const seenIds = useRef<Set<string>>(
     (() => { try { const s = localStorage.getItem("seen-ids"); return s ? new Set<string>(JSON.parse(s)) : new Set<string>(); } catch { return new Set<string>(); } })()
   );
@@ -51,14 +53,19 @@ export function SearchPage() {
       localStorage.setItem("seen-ids", JSON.stringify([...seenIds.current].slice(-200)));
     } catch {}
   };
-  const [picksOpen, setPicksOpen] = useState(true);
-  const [themesOpen, setThemesOpen] = useState(true);
+
+  const [picksOpen, setPicksOpen] = useState(false);
+  const [themesOpen, setThemesOpen] = useState(false);
   const [visiblePresets, setVisiblePresets] = useState(() => [...QUERIES].sort(() => Math.random() - 0.5).slice(0, 3));
 
   const rotatePresets = () => setVisiblePresets([...QUERIES].sort(() => Math.random() - 0.5).slice(0, 3));
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [visibleCount, setVisibleCount] = useState(() => {
+    try { return Number(sessionStorage.getItem("search-visible")) || PAGE_SIZE; } catch { return PAGE_SIZE; }
+  });
   const [loading, setLoading] = useState(false);
-  const [queryUsed, setQueryUsed] = useState("");
+  const [queryUsed, setQueryUsed] = useState(() => {
+    try { return sessionStorage.getItem("search-query-used") || ""; } catch { return ""; }
+  });
   const [nicheMin, setNicheMin] = useState(3);
   const [nicheEnabled, setNicheEnabled] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -67,6 +74,18 @@ export function SearchPage() {
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    try { sessionStorage.setItem("search-films", JSON.stringify(allFilms)); } catch {}
+  }, [allFilms]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem("search-visible", String(visibleCount)); } catch {}
+  }, [visibleCount]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem("search-query-used", queryUsed); } catch {}
+  }, [queryUsed]);
 
   const run = async (q: string, imgFile?: File) => {
     const useImage = imgFile ?? imageFile;
@@ -266,12 +285,6 @@ export function SearchPage() {
           <span className="text-black/50 text-xs font-mono truncate">
             {loading ? "scanning..." : allFilms.length > 0 ? `// ${allFilms.length} records found` : "// awaiting query"}
           </span>
-          {seenCount > 0 && !loading && (
-            <button onClick={() => { seenIds.current.clear(); setSeenCount(0); localStorage.removeItem("seen-ids"); }}
-              className="ml-auto text-[9px] font-mono text-black/30 hover:text-black/60 transition-colors shrink-0">
-              reset seen ({seenCount})
-            </button>
-          )}
         </div>
         <div className="flex-1 overflow-y-auto px-3 py-3 sm:px-5 sm:py-4">
           {!loading && allFilms.length === 0 && !queryUsed && (
