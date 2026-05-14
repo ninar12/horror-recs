@@ -73,19 +73,38 @@ def search(
     user_id: str | None = Depends(get_optional_user_id),
 ):
     exclude_ids = set(exclude.split(",")) if exclude else set()
-    expanded = q if _is_title_query(q) else expand_search_query(q)
+    is_title = _is_title_query(q)
+    expanded = q if is_title else expand_search_query(q)
     loose_keywords = {"nostalgia", "nostalgic", "vibe", "vibes", "feel", "aesthetic", "style", "inspired"}
     is_loose = any(w in q.lower() for w in loose_keywords)
     decade = None if is_loose else _extract_decade(q)
-    niche_filter = {"niche_score": {"$gte": niche_min, "$lte": niche_max}}
-    # Fetch more when decade filter or exclude list reduces the pool
-    base_top_k = CANDIDATE_POOL + len(exclude_ids)
-    top_k = min(base_top_k * 4 if decade else base_top_k, 200)
+
+    if is_title:
+        # For title queries: open niche filter wide and search a large pool
+        niche_filter = {"niche_score": {"$gte": 1, "$lte": 10}}
+        top_k = 80
+    else:
+        niche_filter = {"niche_score": {"$gte": niche_min, "$lte": niche_max}}
+        base_top_k = CANDIDATE_POOL + len(exclude_ids)
+        top_k = min(base_top_k * 4 if decade else base_top_k, 200)
+
     candidates = search_films(
         expanded, top_k=top_k, filter_dict=niche_filter,
         year_min=decade[0] if decade else None,
         year_max=decade[1] if decade else None,
     )
+
+    # Pin title-matching films to the front so Gemini always sees them
+    if is_title:
+        norm_q = re.sub(r"[^a-z0-9]", "", q.lower())
+        title_hits, rest = [], []
+        for c in candidates:
+            norm_t = re.sub(r"[^a-z0-9]", "", c.get("title", "").lower())
+            if norm_q in norm_t or norm_t in norm_q:
+                title_hits.append(c)
+            else:
+                rest.append(c)
+        candidates = title_hits + rest
     if exclude_ids:
         candidates = [c for c in candidates if c["id"] not in exclude_ids]
     context = _get_user_context(user_id) if user_id else {}
