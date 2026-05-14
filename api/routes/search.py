@@ -12,6 +12,19 @@ router = APIRouter(prefix="/api/search", tags=["search"])
 # Larger pool gives Gemini more obscure options to pick from during reranking
 CANDIDATE_POOL = 30
 
+_VIBE_WORDS = {
+    "horror", "scary", "terrifying", "film", "movie", "movies", "films",
+    "vibe", "vibes", "feel", "atmosphere", "like", "similar", "recommend",
+    "watching", "watch", "show", "about", "with", "that", "kind", "type",
+    "slow", "burn", "psychological", "supernatural", "creature", "found",
+    "footage", "slasher", "gothic", "obscure", "indie",
+}
+
+def _is_title_query(q: str) -> bool:
+    """Short query with no vibe/genre words — likely a film title."""
+    words = q.lower().split()
+    return len(words) <= 5 and not any(w in _VIBE_WORDS for w in words)
+
 
 class SearchResponse(BaseModel):
     films: list[dict]
@@ -60,7 +73,7 @@ def search(
     user_id: str | None = Depends(get_optional_user_id),
 ):
     exclude_ids = set(exclude.split(",")) if exclude else set()
-    expanded = expand_search_query(q)
+    expanded = q if _is_title_query(q) else expand_search_query(q)
     loose_keywords = {"nostalgia", "nostalgic", "vibe", "vibes", "feel", "aesthetic", "style", "inspired"}
     is_loose = any(w in q.lower() for w in loose_keywords)
     decade = None if is_loose else _extract_decade(q)
