@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api";
+import { FilmCard } from "../components/FilmCard";
 
 function scoreColor(val: number, max: number) {
   const pct = val / max;
@@ -25,6 +26,26 @@ export function FilmPage() {
   const [loadingSimilar, setLoadingSimilar] = useState(false);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [savedItemId, setSavedItemId] = useState<string | null>(null);
+  const [savedWatchlistId, setSavedWatchlistId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!film || !localStorage.getItem("token")) return;
+    (async () => {
+      try {
+        const res = await api.watchlists.list();
+        if (!res.data.length) return;
+        const detail = await api.watchlists.get(res.data[0].id);
+        const found = (detail.data.items || []).find((item: any) => item.film_id === film.id);
+        if (found) {
+          setAdded(true);
+          setSavedItemId(found.id);
+          setSavedWatchlistId(res.data[0].id);
+        }
+      } catch {}
+    })();
+  }, [film?.id]);
 
   if (!film) {
     return (
@@ -59,21 +80,28 @@ export function FilmPage() {
     setAdding(true);
     try {
       const res = await api.watchlists.list();
-      let id_: string;
-      if (res.data.length > 0) {
-        id_ = res.data[0].id;
-      } else {
-        const created = await api.watchlists.create("Watchlist");
-        id_ = created.data.id;
-      }
-      await api.watchlists.addFilm(id_, {
-        film_id: film.id,
-        film_title: film.title,
-        film_metadata: film,
+      const wlId = res.data.length > 0 ? res.data[0].id : (await api.watchlists.create("Watchlist")).data.id;
+      const added_ = await api.watchlists.addFilm(wlId, {
+        film_id: film.id, film_title: film.title, film_metadata: film,
       });
       setAdded(true);
+      setSavedWatchlistId(wlId);
+      if (added_.data?.id) setSavedItemId(added_.data.id);
     } finally {
       setAdding(false);
+    }
+  };
+
+  const unsave = async () => {
+    if (!savedWatchlistId || !savedItemId) return;
+    setRemoving(true);
+    try {
+      await api.watchlists.removeFilm(savedWatchlistId, savedItemId);
+      setAdded(false);
+      setSavedItemId(null);
+      setSavedWatchlistId(null);
+    } finally {
+      setRemoving(false);
     }
   };
 
@@ -211,9 +239,16 @@ export function FilmPage() {
                   ∿ FIND SIMILAR
                 </button>
               )}
-              <button onClick={save} disabled={adding || added}
-                className="text-xs font-mono px-3 py-1 border border-[var(--term-bright)] text-[var(--term-bright)] hover:bg-[var(--term-bright-10)] disabled:opacity-40 transition-colors">
-                {added ? "SAVED ✓" : adding ? "SAVING…" : "+ SAVE"}
+              <button
+                onClick={added ? unsave : save}
+                disabled={adding || removing}
+                title={added ? "Click to remove from watchlist" : "Save to watchlist"}
+                className={`text-xs font-mono px-3 py-1 border transition-colors disabled:opacity-40 ${
+                  added
+                    ? "border-[var(--term-mid)] text-[var(--term-mid)] hover:border-[#e53935] hover:text-[#e53935]"
+                    : "border-[var(--term-bright)] text-[var(--term-bright)] hover:bg-[var(--term-bright-10)]"
+                }`}>
+                {removing ? "REMOVING…" : added ? "SAVED ✓" : adding ? "SAVING…" : "+ SAVE"}
               </button>
             </div>
           </div>
@@ -227,21 +262,8 @@ export function FilmPage() {
               <div className="text-[var(--term-mid)] text-sm font-mono"><span className="cursor">SCANNING</span></div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                {similar.map((f) => (
-                  <div key={f.id} className="cursor-pointer group"
-                    onClick={() => navigate(`/film/${f.id}`, { state: { film: f } })}>
-                    {f.poster_url ? (
-                      <img src={f.poster_url} alt={f.title}
-                        className="w-full object-cover border border-[var(--term-dark)] group-hover:border-[var(--term-bright)] transition-colors"
-                        style={{ aspectRatio: "2/3" }}
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                    ) : (
-                      <div className="w-full bg-black border border-[var(--term-dark)] group-hover:border-[var(--term-bright)] flex items-center justify-center font-['VT323'] text-[var(--term-dark)] text-4xl transition-colors"
-                        style={{ aspectRatio: "2/3" }}>?</div>
-                    )}
-                    <div className="text-[var(--term-bright)] font-['VT323'] text-lg mt-1 leading-tight line-clamp-2">{f.title}</div>
-                    <div className="text-[var(--term-dark)] text-[9px] font-mono">{f.year}</div>
-                  </div>
+                {similar.map((f, i) => (
+                  <FilmCard key={f.id} film={f} index={i} />
                 ))}
               </div>
             )}

@@ -170,8 +170,14 @@ export function SearchPage() {
   };
 
   const [similarSection, setSimilarSection] = useState<{ title: string; films: any[] } | null>(null);
+  const [sortBy, setSortBy] = useState<"relevance" | "rating" | "niche">("relevance");
 
-  const visibleFilms = allFilms.slice(0, visibleCount);
+  const sortedFilms = [...allFilms].sort((a, b) => {
+    if (sortBy === "rating") return (b.consensus_score ?? b.imdb_rating ?? 0) - (a.consensus_score ?? a.imdb_rating ?? 0);
+    if (sortBy === "niche") return (b.niche_score ?? 0) - (a.niche_score ?? 0);
+    return 0;
+  });
+  const visibleFilms = sortedFilms.slice(0, visibleCount);
   const hasMore = visibleCount < allFilms.length;
 
   const sidebarContents = (
@@ -308,6 +314,16 @@ export function SearchPage() {
           <span className="text-black/50 text-xs font-mono truncate">
             {loading ? "scanning..." : allFilms.length > 0 ? `// ${allFilms.length} records found` : "// awaiting query"}
           </span>
+          {allFilms.length > 0 && (
+            <div className="ml-auto flex items-center gap-1 shrink-0">
+              {(["relevance", "rating", "niche"] as const).map((opt) => (
+                <button key={opt} onClick={() => setSortBy(opt)}
+                  className={`text-[10px] font-mono px-2 py-px border transition-colors ${sortBy === opt ? "border-black/40 text-black/70 bg-black/10" : "border-black/20 text-black/30 hover:text-black/60"}`}>
+                  {opt}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto px-3 py-3 sm:px-5 sm:py-4">
           {!loading && allFilms.length === 0 && !queryUsed && (
