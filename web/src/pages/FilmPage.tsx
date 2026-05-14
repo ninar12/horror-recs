@@ -249,7 +249,6 @@ export function FilmPage() {
         )}
 
       </div>
-      </div>
     </div>
   );
 }
