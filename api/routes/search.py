@@ -23,7 +23,7 @@ _VIBE_WORDS = {
 def _is_title_query(q: str) -> bool:
     """Short query with no vibe/genre words — likely a film title."""
     words = q.lower().split()
-    return len(words) <= 5 and not any(w in _VIBE_WORDS for w in words)
+    return 2 <= len(words) <= 5 and not any(w in _VIBE_WORDS for w in words)
 
 
 class SearchResponse(BaseModel):
