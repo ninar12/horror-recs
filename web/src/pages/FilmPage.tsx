@@ -78,17 +78,24 @@ export function FilmPage() {
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-[var(--term-panel)]">
-      <div className="max-w-5xl mx-auto px-4 py-6">
-
-        {/* Back */}
-        <button onClick={() => navigate(-1)}
-          className="text-[var(--term-mid)] text-xs font-mono hover:text-[var(--term-bright)] transition-colors mb-6 flex items-center gap-1">
-          ← back
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/80 backdrop-blur-sm overflow-y-auto"
+      onClick={() => navigate(-1)}
+    >
+      <div
+        className="relative w-full max-w-5xl mx-auto px-4 py-6 my-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* X button */}
+        <button
+          onClick={() => navigate(-1)}
+          className="absolute top-8 right-6 text-[var(--term-mid)] hover:text-[var(--term-bright)] text-xl leading-none z-10 transition-colors"
+        >
+          ✕
         </button>
 
         {/* Main card */}
-        <div className="flex flex-col sm:flex-row gap-6 mb-8 border border-[var(--term-bright)] p-5"
+        <div className="flex flex-col sm:flex-row gap-6 mb-8 border border-[var(--term-bright)] p-5 bg-[var(--term-panel)]"
           style={{ borderTopColor: accentColor, borderTopWidth: "3px" }}>
 
           {/* Poster */}
@@ -241,6 +248,7 @@ export function FilmPage() {
           </div>
         )}
 
+      </div>
       </div>
     </div>
   );
