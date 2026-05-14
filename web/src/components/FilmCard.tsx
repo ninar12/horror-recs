@@ -512,6 +512,12 @@ export function FilmCard({ film, watchlistId, onAdded, onFindSimilar, index }: P
             </div>
           )}
 
+          {film.why_youll_like_it && (
+            <p className="text-[10px] font-mono italic text-[var(--term-mid)] mt-2 line-clamp-2 leading-snug">
+              {film.why_youll_like_it}
+            </p>
+          )}
+
           <div className="mt-auto pt-2 flex items-center justify-between">
             {/* IMDb link */}
             <a
