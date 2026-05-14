@@ -108,7 +108,7 @@ def search(
     if exclude_ids:
         candidates = [c for c in candidates if c["id"] not in exclude_ids]
     context = _get_user_context(user_id) if user_id else {}
-    ranked = rerank_and_explain(q, candidates, context)
+    ranked = rerank_and_explain(q, candidates[:CANDIDATE_POOL], context)
     return SearchResponse(films=ranked, total=len(ranked), query_used=expanded)
 
 

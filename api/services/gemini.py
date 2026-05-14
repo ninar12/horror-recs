@@ -3,6 +3,7 @@ from functools import lru_cache
 from pydantic_settings import BaseSettings
 import json
 import os
+import re
 
 
 class Settings(BaseSettings):
@@ -86,8 +87,14 @@ Return JSON array of top 8, best match first. Each item: {{"id":"...","rank":1,"
 Return ONLY valid JSON, no markdown."""
 
     try:
-        text = _generate(prompt)
-        rankings = json.loads(text)
+        text = _generate(prompt).strip()
+        # Strip markdown code fences Gemini sometimes adds
+        if text.startswith("```"):
+            text = re.sub(r"^```(?:json)?\s*", "", text)
+            text = re.sub(r"\s*```$", "", text)
+        rankings = json.loads(text.strip())
+        if isinstance(rankings, dict):
+            rankings = next(iter(rankings.values()))
     except Exception:
         return candidates[:8]
 

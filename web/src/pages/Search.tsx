@@ -66,7 +66,7 @@ export function SearchPage() {
     try { return sessionStorage.getItem("search-query-used") || ""; } catch { return ""; }
   });
   const [nicheMin, setNicheMin] = useState(3);
-  const [nicheEnabled, setNicheEnabled] = useState(true);
+  const [nicheEnabled, setNicheEnabled] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
