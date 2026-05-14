@@ -42,6 +42,7 @@ export function WatchlistsPage() {
   };
 
   return (
+    <div className="h-full overflow-y-auto">
     <div className="max-w-3xl mx-auto px-4 py-10">
 
       <div className="terminal-panel mb-8 border border-[var(--term-dark)] bg-[var(--term-panel)] p-5">
@@ -105,6 +106,7 @@ export function WatchlistsPage() {
           </div>
         </>
       )}
+    </div>
     </div>
   );
 }

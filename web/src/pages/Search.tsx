@@ -86,11 +86,14 @@ export function SearchPage() {
     try { sessionStorage.setItem("search-query-used", queryUsed); } catch {}
   }, [queryUsed]);
 
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
   const run = async (q: string, imgFile?: File) => {
     const useImage = imgFile ?? imageFile;
     if (!useImage && !q.trim()) return;
     setLoading(true);
     setAllFilms([]);
+    setSimilarSection(null);
     rotatePresets();
     setVisibleCount(PAGE_SIZE);
     setSidebarOpen(false);
@@ -109,6 +112,26 @@ export function SearchPage() {
       persistSeen();
       setAllFilms(deduped);
       setQueryUsed(res.data.query_used || q);
+
+      // If query looks like a title and top result matches, fetch similar films
+      if (!useImage && deduped.length > 0 && q.trim().split(/\s+/).length <= 5) {
+        const anchor = deduped[0];
+        const nq = norm(q.trim());
+        const nt = norm(anchor.title);
+        if (nt.includes(nq) || nq.includes(nt)) {
+          api.search.similar({
+            film_id: anchor.id, title: anchor.title,
+            synopsis: anchor.synopsis, genres: anchor.genres, atmosphere: anchor.atmosphere,
+          }).then((simRes) => {
+            const simFilms = (simRes.data.films || []).filter(
+              (f: any) => f.id !== anchor.id && !seenIds.current.has(f.id)
+            );
+            simFilms.forEach((f: any) => seenIds.current.add(f.id));
+            persistSeen();
+            setSimilarSection({ title: anchor.title, films: simFilms });
+          }).catch(() => {});
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -145,6 +168,8 @@ export function SearchPage() {
     setImagePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
+
+  const [similarSection, setSimilarSection] = useState<{ title: string; films: any[] } | null>(null);
 
   const visibleFilms = allFilms.slice(0, visibleCount);
   const hasMore = visibleCount < allFilms.length;
@@ -311,6 +336,18 @@ export function SearchPage() {
                   className="w-full mt-4 py-3 border border-black/20 hover:border-black/60 text-black/40 hover:text-black text-sm font-mono transition-colors">
                   LOAD MORE ({allFilms.length - visibleCount} remaining)
                 </button>
+              )}
+              {similarSection && similarSection.films.length > 0 && (
+                <div className="mt-6">
+                  <div className="text-[10px] font-mono text-black/30 mb-3 pt-4 border-t border-black/20 uppercase tracking-widest">
+                    // similar to: {similarSection.title}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3">
+                    {similarSection.films.map((film) => (
+                      <FilmCard key={film.id} film={film} />
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           )}
