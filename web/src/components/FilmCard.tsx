@@ -452,14 +452,14 @@ export function FilmCard({ film, watchlistId, onAdded, onFindSimilar, index }: P
           )}
 
           {/* Index */}
-          <span className="absolute top-2 left-2 text-[10px] font-mono bg-black/70 text-[var(--term-mid)] px-1.5 py-px leading-none">
+          <span className="absolute top-2 left-2 text-[11px] font-mono bg-black/70 text-[var(--term-mid)] px-1.5 py-px leading-none">
             {idx}
           </span>
 
           {/* Niche badge */}
           {tier && film.niche_score != null && (
             <span
-              className="absolute top-2 right-2 text-[9px] font-mono px-1.5 py-px leading-none"
+              className="absolute top-2 right-2 text-[10px] font-mono px-1.5 py-px leading-none"
               style={{ color: tier.color, backgroundColor: "rgba(0,0,0,0.80)", border: `1px solid ${tier.color}` }}
             >
               {tier.label} {film.niche_score}/10
@@ -468,7 +468,7 @@ export function FilmCard({ film, watchlistId, onAdded, onFindSimilar, index }: P
 
           {/* Watched indicator */}
           {isWatched && (
-            <span className="absolute bottom-2 left-2 text-[9px] font-mono px-1.5 py-px bg-black/80 border border-[#4caf50] text-[#4caf50] leading-none">
+            <span className="absolute bottom-2 left-2 text-[10px] font-mono px-1.5 py-px bg-black/80 border border-[#4caf50] text-[#4caf50] leading-none">
               WATCHED ✓
             </span>
           )}
@@ -485,64 +485,40 @@ export function FilmCard({ film, watchlistId, onAdded, onFindSimilar, index }: P
         </div>
 
         {/* Info strip */}
-        <div className="px-3 pt-2.5 pb-2 flex-1 flex flex-col">
+        <div className="px-3 pt-2.5 pb-3 flex-1 flex flex-col gap-1.5">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-[var(--term-bright)] font-['VT323'] text-2xl leading-tight tracking-wide line-clamp-2 flex-1 min-w-0">
+            <p className="text-[var(--term-bright)] font-['VT323'] text-3xl leading-tight tracking-wide line-clamp-2 flex-1 min-w-0">
               {film.title}
             </p>
             {consensusStr && (
-              <span className="font-['VT323'] text-2xl leading-tight shrink-0" style={{ color: consensusColor }}>
+              <span className="font-['VT323'] text-2xl leading-tight shrink-0 mt-0.5" style={{ color: consensusColor }}>
                 {consensusStr}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            {film.year && (
-              <span className="text-xs font-mono text-[var(--term-mid)]">{film.year}</span>
-            )}
+          <div className="flex items-center gap-1.5 text-xs font-mono">
+            {film.year && <span className="text-[var(--term-mid)]">{film.year}</span>}
+            {film.year && film.director && <span className="text-[var(--term-dark)]">·</span>}
             {film.director && (
-              <span className="text-[10px] font-mono text-[var(--term-dark)] truncate max-w-[120px]">
-                {film.director}
-              </span>
+              <span className="text-[var(--term-dark)] truncate">{film.director}</span>
             )}
           </div>
-          {/* Niche score bar */}
-          {film.niche_score != null && (
-            <div className="flex items-center gap-1.5 mt-1.5">
-              <span className="text-[9px] font-mono text-[var(--term-dark)] uppercase tracking-widest">niche</span>
-              <div className="flex-1 h-px bg-[var(--term-dark)] relative max-w-[48px]">
-                <div
-                  className="absolute inset-y-0 left-0"
-                  style={{ width: `${film.niche_score * 10}%`, backgroundColor: accentColor, opacity: 0.8 }}
-                />
-              </div>
-              <span className="text-[10px] font-mono" style={{ color: accentColor }}>
-                {film.niche_score}/10
-              </span>
-            </div>
+          {tier && film.niche_score != null && (
+            <span className="text-[10px] font-mono w-fit px-1.5 py-px border leading-none"
+                  style={{ color: tier.color, borderColor: tier.color }}>
+              {tier.label}
+            </span>
           )}
-
-          {film.why_youll_like_it && (
-            <p className="text-[10px] font-mono italic text-[var(--term-mid)] mt-2 line-clamp-2 leading-snug">
-              {film.why_youll_like_it}
-            </p>
-          )}
-
-          <div className="mt-auto pt-2 flex items-center justify-between">
-            {/* IMDb link */}
+          <div className="mt-auto pt-2">
             <a
               href={imdbUrl}
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="inline-flex items-center gap-1 text-[9px] font-mono text-[var(--term-dark)] hover:text-[var(--term-bright)] transition-colors"
+              className="text-[11px] font-mono text-[var(--term-dark)] hover:text-[var(--term-bright)] transition-colors px-1.5 py-px border border-[var(--term-dark)] hover:border-[var(--term-bright)]"
             >
-              <span className="px-1 py-px border border-[var(--term-dark)] hover:border-[var(--term-bright)] transition-colors">
-                IMDb
-              </span>
-              <span>↗</span>
+              IMDb ↗
             </a>
-            <span className="text-[9px] font-mono text-[var(--term-dark)]">tap to save / details</span>
           </div>
         </div>
       </div>
