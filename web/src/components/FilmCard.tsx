@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api";
+import { useAuth } from "../contexts/AuthContext";
 
 interface Film {
   id: string;
@@ -418,6 +419,8 @@ function FilmModal({
 export function FilmCard({ film, watchlistId, onAdded, onFindSimilar, index }: Props) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const { watchedIds } = useAuth();
+  const isWatched = watchedIds.has(film.id);
 
   const idx         = index !== undefined ? String(index + 1).padStart(2, "0") : "--";
   const tier        = film.niche_score != null ? getNicheTier(film.niche_score) : null;
@@ -460,6 +463,13 @@ export function FilmCard({ film, watchlistId, onAdded, onFindSimilar, index }: P
               style={{ color: tier.color, backgroundColor: "rgba(0,0,0,0.80)", border: `1px solid ${tier.color}` }}
             >
               {tier.label} {film.niche_score}/10
+            </span>
+          )}
+
+          {/* Watched indicator */}
+          {isWatched && (
+            <span className="absolute bottom-2 left-2 text-[9px] font-mono px-1.5 py-px bg-black/80 border border-[#4caf50] text-[#4caf50] leading-none">
+              WATCHED ✓
             </span>
           )}
 

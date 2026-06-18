@@ -1,0 +1,33 @@
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { useState } from "react";
+import { api } from "../api";
+import { useAuth } from "../contexts/AuthContext";
+export function AuthModal({ onClose }) {
+    const { login } = useAuth();
+    const [tab, setTab] = useState("login");
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+    const submit = async (e) => {
+        e.preventDefault();
+        setError("");
+        setLoading(true);
+        try {
+            const res = tab === "login"
+                ? await api.auth.login(email, password)
+                : await api.auth.register(email, password);
+            await login(res.data.access_token);
+            onClose();
+        }
+        catch (err) {
+            setError(err?.response?.data?.detail || "Something went wrong");
+        }
+        finally {
+            setLoading(false);
+        }
+    };
+    return (_jsxs("div", { className: "fixed inset-0 z-50 flex items-center justify-center p-4", onClick: onClose, children: [_jsx("div", { className: "absolute inset-0 bg-black/80 backdrop-blur-sm" }), _jsxs("div", { className: "relative z-10 w-full max-w-sm bg-[var(--term-panel)] border border-[var(--term-bright)]", onClick: (e) => e.stopPropagation(), children: [_jsx("div", { className: "flex border-b border-[var(--term-dark)]", children: ["login", "register"].map((t) => (_jsxs("button", { onClick: () => { setTab(t); setError(""); }, className: `flex-1 py-3 text-sm transition-colors border-r last:border-r-0 border-[var(--term-dark)] ${tab === t
+                                ? "text-[var(--term-bright)] bg-[var(--term-bright-10)]"
+                                : "text-[var(--term-mid)] hover:text-[var(--term-bright)]"}`, children: [tab === t ? "> " : "  ", t.toUpperCase()] }, t))) }), _jsxs("form", { onSubmit: submit, className: "p-5 space-y-3", children: [_jsxs("div", { className: "text-[var(--term-dark)] text-[10px] mb-2", children: ["root@reelscream:~$ ", tab === "login" ? "auth login" : "auth register"] }), _jsxs("div", { children: [_jsx("div", { className: "text-[var(--term-dark)] text-[10px] mb-1", children: "EMAIL" }), _jsx("input", { type: "email", value: email, onChange: (e) => setEmail(e.target.value), required: true, autoFocus: true, className: "w-full bg-black border border-[var(--term-dark)] text-[var(--term-bright)] px-2 py-2 text-sm focus:outline-none focus:border-[var(--term-bright)]", placeholder: "you@example.com" })] }), _jsxs("div", { children: [_jsx("div", { className: "text-[var(--term-dark)] text-[10px] mb-1", children: "PASSWORD" }), _jsx("input", { type: "password", value: password, onChange: (e) => setPassword(e.target.value), required: true, className: "w-full bg-black border border-[var(--term-dark)] text-[var(--term-bright)] px-2 py-2 text-sm focus:outline-none focus:border-[var(--term-bright)]", placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" })] }), error && (_jsxs("div", { className: "text-[#cc2200] text-xs font-mono", children: ["// ", error] })), _jsxs("div", { className: "flex gap-2 pt-1", children: [_jsx("button", { type: "submit", disabled: loading, className: "flex-1 py-2.5 border border-[var(--term-bright)] text-[var(--term-bright)] hover:bg-[var(--term-bright-10)] text-sm disabled:opacity-40 transition-colors", children: loading ? _jsx("span", { className: "cursor", children: "AUTHENTICATING" }) : `[${tab === "login" ? "LOGIN" : "REGISTER"}]` }), _jsx("button", { type: "button", onClick: onClose, className: "px-4 py-2.5 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] text-sm transition-colors", children: "[ESC]" })] })] })] })] }));
+}

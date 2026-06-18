@@ -88,6 +88,9 @@ def main():
             "niche_score": film.get("niche_score") or 5,
             "streaming_platforms": film.get("streaming_platforms", []),
             "rental_platforms": film.get("rental_platforms", []),
+            "rt_score": film.get("rt_score"),
+            "lb_rating": film.get("lb_rating"),
+            "consensus_score": film.get("consensus_score"),
         }
         batch.append(record)
 

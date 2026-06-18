@@ -1,14 +1,17 @@
 import { useState, useEffect } from "react";
 import { api } from "../api";
 import { FilmCard } from "../components/FilmCard";
+import { useAuth } from "../contexts/AuthContext";
 
 export function WatchlistsPage() {
+  const { loggedIn } = useAuth();
   const [watchlist, setWatchlist] = useState<any | null>(null);
   const [randomFilm, setRandomFilm] = useState<any | null>(null);
   const [spinning, setSpinning] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
+    if (!loggedIn) { setLoading(false); return; }
     setLoading(true);
     try {
       const res = await api.watchlists.list();
@@ -24,7 +27,7 @@ export function WatchlistsPage() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [loggedIn]);
 
   const spinRandom = async () => {
     if (!watchlist) return;
@@ -58,13 +61,20 @@ export function WatchlistsPage() {
         </div>
       )}
 
-      {!loading && !watchlist && (
+      {!loading && !loggedIn && (
+        <div className="text-center text-[var(--term-mid)] py-12 text-sm border border-[var(--term-dark)] bg-[var(--term-panel)] space-y-3">
+          <div>// login to save films to your watchlist</div>
+          <div className="text-[var(--term-dark)] text-xs">click [LOGIN] in the top-right to get started</div>
+        </div>
+      )}
+
+      {!loading && loggedIn && !watchlist && (
         <div className="text-center text-[var(--term-mid)] py-10 text-sm border border-[var(--term-dark)] bg-[var(--term-panel)]">
           // nothing saved yet · open any film and hit + SAVE
         </div>
       )}
 
-      {!loading && watchlist && (
+      {!loading && loggedIn && watchlist && (
         <>
           <div className="flex items-center justify-between mb-4 border-b border-[var(--term-dark)] pb-3">
             <span className="text-[var(--term-mid)] text-xs">

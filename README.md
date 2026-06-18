@@ -1,10 +1,10 @@
 # ReelScream
 
-> AI-powered horror film discovery — find obscure picks by mood, theme, or vibe, not just title keywords.
+> AI-powered horror film discovery — find obscure picks by mood, theme, vibe, or image. Intentionally biased toward cult and under-seen films.
 
 ## What it does
 
-Users describe what they want ("something slow-burn and atmospheric about grief") and the app returns a ranked grid of horror films that match — each with a one-sentence AI explanation of why it fits. Results are intentionally biased toward niche and cult films over mainstream picks the user has probably already seen. Users can save films to personal watchlists and get a random pick from any mood or watchlist.
+Users describe what they want ("something slow-burn and atmospheric about grief"), upload a photo for vibe-matching, or browse by preset theme. The app returns a ranked grid of horror films with a one-sentence AI explanation per film. Results are biased toward niche and cult picks over mainstream titles. Logged-in users can save films to watchlists, mark films as watched, and track watch history.
 
 ---
 
@@ -14,43 +14,54 @@ Users describe what they want ("something slow-burn and atmospheric about grief"
 |---|---|
 | **Backend** | Python 3.11, FastAPI, Mangum (serverless ASGI adapter) |
 | **Frontend** | React 18, TypeScript, Vite, Tailwind CSS |
-| **Embeddings** | Pinecone integrated — NVIDIA `llama-text-embed-v2` (1024 dims, hosted) |
-| **Reranking + mood expansion** | Gemini 2.5 Flash — reranks candidates, writes per-film explanations, expands mood queries |
+| **Embeddings** | Pinecone integrated — NVIDIA `llama-text-embed-v2` (1024 dims, server-side) |
+| **Query expansion + reranking** | Gemini 2.5 Flash Lite — rewrites queries atmospherically, reranks candidates, writes per-film explanations |
+| **Image search** | Gemini 2.5 Flash (Vision) — converts uploaded image to atmospheric horror query |
 | **Vector DB** | Pinecone serverless (AWS us-east-1, cosine similarity) |
 | **User DB** | Neon (Postgres) via SQLAlchemy + psycopg2 |
-| **Auth** | JWT (python-jose) + bcrypt (passlib) |
-| **Poster images** | TMDb API — patched into `raw_films.json` at index time, served via in-memory lookup |
-| **Data source** | TMDb API (metadata, streaming providers via JustWatch) |
+| **Auth** | JWT (python-jose) + bcrypt |
+| **Ratings** | IMDb (TMDb), Letterboxd (scraped), Rotten Tomatoes (OMDb, ~950/day) |
+| **Poster images** | TMDb API — patched into `raw_films.json` at index time |
 
 ---
 
 ## Architecture
 
 ```
-User query (text)
+User input (text query / mood / image upload)
     │
     ▼
-Pinecone integrated embedding        ← llama-text-embed-v2, query embedded server-side
-    │                                   no client-side embedding call needed
+Query expansion (Gemini 2.5 Flash Lite)       ← rewrites any input into 1-2 sentence
+    │                                            atmospheric description
     ▼
-Pinecone vector search               ← top 10 candidates (CANDIDATE_POOL)
-    │                                   pre-filtered by niche_score range
+Pinecone vector search                         ← top 30 candidates (CANDIDATE_POOL)
+    │                                            pre-filtered by niche_score range
+    │                                            optional year range filter (decade queries)
     ▼
-Score blending                       ← similarity * 0.7 + (niche_score / 10) * 0.3
+Score blending                                 ← similarity * 0.6 + (niche_score / 10) * 0.4
     │
     ▼
-Gemini 2.5 Flash rerank              ← re-orders, adds why_youll_like_it per film,
-    │                                   optionally uses watch history for context
+Session deduplication                          ← exclude already-seen film IDs
+    │
     ▼
-In-memory poster enrichment          ← raw_films.json lookup, no extra network call
+Gemini 2.5 Flash Lite rerank                  ← re-orders top 8, adds why_youll_like_it,
+    │                                            obscurity-biased prompt,
+    │                                            optionally uses watch history for context
+    ▼
+In-memory poster enrichment                   ← raw_films.json lookup (lru_cache)
     │
     ▼
 FastAPI JSON → React frontend grid
 ```
 
-**Mood query flow** (the `/api/search/mood` endpoint):
+**Image search flow** (`/api/search/image`):
 ```
-Mood phrase → Gemini 2.5 Flash expands to semantic horror query → same pipeline above
+Uploaded image → Gemini 2.5 Flash Vision → atmospheric query string → same pipeline above
+```
+
+**Find Similar flow** (`/api/search/similar`):
+```
+Film metadata (title, genres, atmosphere) → Gemini rerank with similar_to mode → top 8
 ```
 
 ---
@@ -66,9 +77,8 @@ Each film has a `niche_score` from 1–10 stored in Pinecone. Higher = more obsc
 
 **Score blending at query time:**
 ```python
-blended_score = similarity * 0.7 + (niche_score / 10) * 0.3
+blended_score = similarity * 0.6 + (niche_score / 10) * 0.4
 ```
-This ensures relevant films rank first, but niche films win tiebreakers.
 
 **Frontend tiers:**
 | Score | Label | Color |
@@ -78,10 +88,44 @@ This ensures relevant films rank first, but niche films win tiebreakers.
 | 4–5 | HIDDEN GEM | Amber/theme color |
 | 1–3 | (no badge) | — |
 
-**Known limitations / planned improvements:**
-- Pure `popularity` signal is volatile — TMDb popularity spikes on sequel announcements. Adding `vote_count` as a second signal (weighted 40/60) would produce more stable scores.
-- No year normalization — a 1974 film with 500 votes is more obscure than a 2024 film with 500 votes. Year-adjusted percentiles would correct this.
-- No quality/obscurity separation — a low-quality obscure film and a genuine hidden gem score identically. A `quality_score` (IMDb rating weighted by log vote count) could let Gemini distinguish them in the reranking prompt.
+---
+
+## Consensus Scoring
+
+Each film has a `consensus_score` (0–10) blended from available rating sources:
+
+| Sources available | Weight |
+|---|---|
+| IMDb + RT + Letterboxd | 30% / 35% / 35% |
+| IMDb + Letterboxd (no RT) | 46% / 54% |
+| IMDb only | 100% |
+
+RT scores are populated via OMDb (950/day free tier, ~10 days to full coverage). Letterboxd ratings are scraped (76% coverage as of build). `patch_ratings.py` pushes updates directly to Pinecone metadata without re-embedding.
+
+---
+
+## User Accounts
+
+Auth is JWT-based. Tokens stored in `localStorage`, sent as `Authorization: Bearer` header.
+
+**Endpoints:**
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/api/auth/register` | Create account |
+| POST | `/api/auth/login` | Get JWT token |
+| GET | `/api/auth/me` | Get current user profile |
+| GET | `/api/history` | Watch history (newest first) |
+| POST | `/api/history` | Mark film as watched |
+| DELETE | `/api/history/{film_id}` | Remove from history |
+| GET | `/api/history/ids` | Lightweight set of watched film IDs |
+| GET | `/api/watchlists` | List watchlists |
+| POST | `/api/watchlists` | Create watchlist |
+| GET | `/api/watchlists/{id}` | Get watchlist with items |
+| POST | `/api/watchlists/{id}/items` | Add film to watchlist |
+| DELETE | `/api/watchlists/{id}/items/{item_id}` | Remove film |
+
+**Frontend auth state** is managed via `AuthContext` (React Context API). On mount it rehydrates the token from `localStorage`, fetches `/api/auth/me` to load the user profile, and fetches `/api/history/ids` to pre-populate the watched state across all film cards.
 
 ---
 
@@ -92,13 +136,15 @@ horror-recs/
 ├── api/
 │   ├── index.py                  — FastAPI app entry point + Mangum handler
 │   ├── routes/
-│   │   ├── auth.py               — POST /api/auth/register, /api/auth/login
-│   │   ├── search.py             — GET /api/search, /api/search/mood
-│   │   ├── watchlist.py          — CRUD /api/watchlists
-│   │   └── random.py             — GET /api/random/from-watchlist, /api/random/from-mood
+│   │   ├── auth.py               — register, login, /me
+│   │   ├── search.py             — GET /search, /search/mood, POST /search/similar, /search/image
+│   │   ├── watchlist.py          — CRUD /watchlists
+│   │   ├── history.py            — watch history CRUD
+│   │   └── random.py             — GET /random/from-watchlist, /random/from-mood
 │   └── services/
-│       ├── gemini.py             — rerank_and_explain, generate_mood_query (Gemini 2.5 Flash)
-│       ├── pinecone_client.py    — search_films using integrated embedding + score blending
+│       ├── gemini.py             — expand_search_query, rerank_and_explain, generate_mood_query,
+│       │                           image_to_horror_query (Gemini 2.5 Flash / Flash Lite)
+│       ├── pinecone_client.py    — search_films: integrated embedding + score blending + year filter
 │       ├── film_lookup.py        — in-memory poster lookup from raw_films.json (lru_cache)
 │       ├── database.py           — SQLAlchemy models: User, Watchlist, WatchlistItem, WatchHistory
 │       └── auth.py               — JWT encode/decode, bcrypt, get_optional_user_id
@@ -106,23 +152,32 @@ horror-recs/
 │   ├── scrape_films.py           — Step 1: fetch TMDb horror catalog → data/raw_films.json
 │   ├── patch_posters.py          — Step 1b: patch raw_films.json with poster_path from TMDb
 │   ├── patch_niche_scores.py     — Step 1c: compute percentile-based niche scores
+│   ├── patch_ratings.py          — Step 1d: fetch LB ratings + OMDb RT scores, push to Pinecone
+│   ├── patch_vote_counts.py      — Step 1e: patch vote counts from TMDb
+│   ├── patch_pinecone_posters.py — Backfill: push poster_url into existing Pinecone records
 │   ├── embed_and_index.py        — Step 2: upsert_records to Pinecone (integrated embedding)
 │   └── create_tables.py          — One-time: create Neon Postgres tables
 ├── web/
 │   ├── src/
 │   │   ├── main.tsx
-│   │   ├── App.tsx               — nav bar, theme switcher, routes
-│   │   ├── api.ts                — axios client, search/watchlist/auth helpers
-│   │   ├── vite-env.d.ts         — Vite import.meta.env type declarations
-│   │   ├── index.css             — terminal CSS variables, themes, scanlines
+│   │   ├── App.tsx               — nav bar, theme switcher, routes, AuthProvider
+│   │   ├── api.ts                — axios client with auth interceptor, all endpoint helpers
+│   │   ├── index.css             — terminal CSS variables, themes, scanlines, cursor blink
+│   │   ├── contexts/
+│   │   │   └── AuthContext.tsx   — global auth state, watchedIds Set, toggleWatched()
 │   │   ├── pages/
-│   │   │   ├── Search.tsx        — two-column layout: sidebar search + poster grid
-│   │   │   └── Watchlists.tsx
+│   │   │   ├── Search.tsx        — unified search (text/image/random), niche slider, dedup
+│   │   │   ├── Watchlists.tsx    — saved film grid + random pick
+│   │   │   ├── FilmPage.tsx      — full film detail page, find similar, mark watched, save
+│   │   │   ├── Profile.tsx       — user profile, watch history, stats, ascii bar chart
+│   │   │   └── About.tsx
 │   │   └── components/
-│   │       └── FilmCard.tsx      — poster-top card with niche badge + expandable details
+│   │       ├── FilmCard.tsx      — poster-top card, niche badge, watched indicator, find similar
+│   │       └── AuthModal.tsx     — login/register modal
 │   └── index.html
 ├── data/                         — gitignored (raw_films.json, checkpoints)
 ├── requirements.txt
+├── runtime.txt
 └── vercel.json
 ```
 
@@ -132,37 +187,24 @@ horror-recs/
 
 Run once to populate Pinecone from scratch. Scripts must run in order.
 
-### Step 1 — Scrape films
-
 ```bash
+# Step 1 — Scrape films from TMDb
 python scripts/scrape_films.py
-```
 
-Fetches all horror films from TMDb, paginating by year (1900–present) to bypass the 10k global cap. Saves full metadata to `data/raw_films.json`. Resumable via checkpoint files.
-
-### Step 1b — Patch posters
-
-```bash
+# Step 1b — Patch poster URLs
 python scripts/patch_posters.py
-```
 
-Fetches `poster_path` from TMDb for any film in `raw_films.json` missing one. Uses 15 parallel workers. Run after scraping or after adding new films.
-
-### Step 1c — Patch niche scores
-
-```bash
+# Step 1c — Compute niche scores
 python scripts/patch_niche_scores.py
-```
 
-Reads `raw_films.json`, computes percentile-based niche scores from TMDb `popularity`, and writes updated scores back to the file. Re-run after adding new films so the percentile buckets stay calibrated across the full corpus.
+# Step 1d — Fetch Letterboxd + OMDb ratings (run daily, 950 OMDb/day limit)
+python scripts/patch_ratings.py
 
-### Step 2 — Index to Pinecone
-
-```bash
+# Step 2 — Index to Pinecone
 python scripts/embed_and_index.py
 ```
 
-Reads `raw_films.json` and upserts records to Pinecone using `upsert_records()` with integrated embedding (llama-text-embed-v2 is called server-side by Pinecone — no local embedding step). Batches of 40 records with rate-limit backoff. Skips films already indexed — safe to re-run.
+`patch_ratings.py` is resumable — skips films already having `rt_score`. It updates Pinecone metadata directly via `index.update()` without re-embedding.
 
 ---
 
@@ -171,14 +213,15 @@ Reads `raw_films.json` and upserts records to Pinecone using `upsert_records()` 
 | Variable | Required | Used by | Notes |
 |---|---|---|---|
 | `TMDB_READ_TOKEN` | Yes | scripts | TMDb developer dashboard → API Read Access Token |
-| `GEMINI_API_KEY` | Yes | api | Google AI Studio — Gemini 2.5 Flash for reranking |
+| `GEMINI_API_KEY` | Yes | api | Google AI Studio |
 | `PINECONE_API_KEY` | Yes | api, scripts | Pinecone console |
-| `PINECONE_INDEX_NAME` | No | api, scripts | Defaults to `horror-films` |
-| `DATABASE_URL` | Yes | api | Neon console → `postgres://...` connection string |
+| `PINECONE_INDEX_NAME` | No | api, scripts | Defaults to `horror-recs` |
+| `DATABASE_URL` | Yes | api | Neon console → `postgres://...` |
 | `JWT_SECRET` | Yes | api | Any long random string |
 | `JWT_ALGORITHM` | No | api | Defaults to `HS256` |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | No | api | Defaults to `10080` (7 days) |
-| `VITE_API_URL` | No | web | Set to deployed API URL if frontend is on a different domain |
+| `OMDB_API_KEY` | Yes | scripts | OMDb for RT scores — 1000 req/day free |
+| `VITE_API_URL` | No | web | Deployed API URL if frontend is on a different domain |
 
 ---
 
@@ -209,21 +252,20 @@ npm install
 npm run dev
 ```
 
-Frontend at `http://localhost:5173`. Vite proxies `/api` to `http://localhost:8000` — verify `vite.config.ts` has the proxy configured.
-
-Both processes must run simultaneously during local development.
+Frontend at `http://localhost:5173`. Vite proxies `/api` to `http://localhost:8000`.
 
 ---
 
 ## UI
 
-The frontend uses a custom terminal / CRT aesthetic:
+Terminal / CRT aesthetic:
 
 - **Fonts**: VT323 (titles), Share Tech Mono (body)
-- **Themes**: Amber (default), Green, Red, Cyan, White — switched via color swatches in the nav bar. Each theme changes the `--term-bright` CSS variable which drives the inverted right-panel background and all accent colors.
-- **Layout**: Fixed left sidebar (search, mode toggle, niche slider) + scrollable right panel with an inverted background (`bg-[var(--term-bright)]`, black text)
-- **Film cards**: Poster-top grid (2–6 columns responsive), 2:3 aspect ratio poster, niche tier badge overlay, expandable details (AI reason, director, streaming, external links)
-- **Mobile**: Sidebar hidden below `md` breakpoint, accessible via a `☰ SEARCH` drawer toggle
+- **Themes**: Amber (default), Green, Red, Cyan, White — switched via color swatches in the nav bar
+- **Film cards**: Poster-top grid (2–5 columns responsive), 2:3 aspect ratio, niche tier badge, WATCHED ✓ indicator, FIND SIMILAR hover overlay
+- **Film page**: Full-screen overlay with ratings, synopsis, atmosphere, genres, streaming, find similar strip
+- **Profile page**: Watch history list + ASCII bar chart of films watched per month
+- **Mobile**: Bottom nav bar
 
 ---
 
@@ -233,4 +275,18 @@ The frontend uses a custom terminal / CRT aesthetic:
 vercel --prod
 ```
 
-`vercel.json` routes `/api/*` to `api/index.py` (Python serverless function, 50 MB lambda cap) and serves the React build as a static site from `web/dist`. Set all environment variables in the Vercel project settings before deploying.
+`vercel.json` routes `/api/*` to `api/index.py` (Python serverless, 50 MB lambda cap) and serves the React build as a static site from `web/dist`. Set all environment variables in Vercel project settings before deploying.
+
+---
+
+## Data Coverage (as of June 2026)
+
+| Attribute | Coverage |
+|---|---|
+| Films indexed in Pinecone | 9,536 |
+| Poster images | 100% |
+| IMDb ratings | ~94% (8,971 with consensus score) |
+| Letterboxd ratings | 76% (7,290 / 9,536) |
+| Rotten Tomatoes scores | ~0.02% (2 / 9,536) — running at 950/day via OMDb |
+| Consensus score | 94% (8,971 / 9,536) |
+| Niche scores | 100% |

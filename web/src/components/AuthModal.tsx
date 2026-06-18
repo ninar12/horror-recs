@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { api } from "../api";
+import { useAuth } from "../contexts/AuthContext";
 
 interface Props {
   onClose: () => void;
-  onSuccess: () => void;
 }
 
-export function AuthModal({ onClose, onSuccess }: Props) {
+export function AuthModal({ onClose }: Props) {
+  const { login } = useAuth();
   const [tab, setTab] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,8 +22,7 @@ export function AuthModal({ onClose, onSuccess }: Props) {
       const res = tab === "login"
         ? await api.auth.login(email, password)
         : await api.auth.register(email, password);
-      localStorage.setItem("token", res.data.access_token);
-      onSuccess();
+      await login(res.data.access_token);
       onClose();
     } catch (err: any) {
       setError(err?.response?.data?.detail || "Something went wrong");

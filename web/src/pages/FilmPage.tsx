@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { FilmCard } from "../components/FilmCard";
+import { useAuth } from "../contexts/AuthContext";
 
 function scoreColor(val: number, max: number) {
   const pct = val / max;
@@ -21,14 +22,17 @@ export function FilmPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const film = (location.state as any)?.film;
+  const { loggedIn, watchedIds, toggleWatched } = useAuth();
 
   const [similar, setSimilar] = useState<any[]>([]);
+  const [similarPool, setSimilarPool] = useState<any[]>([]);
   const [loadingSimilar, setLoadingSimilar] = useState(false);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [savedItemId, setSavedItemId] = useState<string | null>(null);
   const [savedWatchlistId, setSavedWatchlistId] = useState<string | null>(null);
+  const [watchedPending, setWatchedPending] = useState(false);
 
   useEffect(() => {
     if (!film || !localStorage.getItem("token")) return;
@@ -47,6 +51,12 @@ export function FilmPage() {
     })();
   }, [film?.id]);
 
+  // Auto-fetch similar on load
+  useEffect(() => {
+    if (!film) return;
+    fetchSimilar();
+  }, [film?.id]);
+
   if (!film) {
     return (
       <div className="flex items-center justify-center h-full text-[var(--term-mid)] font-mono text-sm">
@@ -61,7 +71,10 @@ export function FilmPage() {
   const imdbUrl = `https://www.imdb.com/find/?q=${encodeURIComponent(`${film.title} ${film.year ?? ""}`)}`;
   const rtUrl = `https://www.rottentomatoes.com/search?search=${encodeURIComponent(film.title)}`;
 
+  const shuffle = (arr: any[]) => [...arr].sort(() => Math.random() - 0.5);
+
   const fetchSimilar = async () => {
+    if (loadingSimilar) return;
     setLoadingSimilar(true);
     try {
       const res = await api.search.similar({
@@ -69,10 +82,17 @@ export function FilmPage() {
         synopsis: film.synopsis, genres: film.genres,
         atmosphere: film.atmosphere,
       });
-      setSimilar(res.data.films || []);
+      const pool = res.data.films || [];
+      setSimilarPool(pool);
+      setSimilar(shuffle(pool).slice(0, 8));
     } finally {
       setLoadingSimilar(false);
     }
+  };
+
+  const reshuffleSimilar = () => {
+    if (similarPool.length === 0) return;
+    setSimilar(shuffle(similarPool).slice(0, 8));
   };
 
   const save = async () => {
@@ -102,6 +122,16 @@ export function FilmPage() {
       setSavedWatchlistId(null);
     } finally {
       setRemoving(false);
+    }
+  };
+
+  const handleToggleWatched = async () => {
+    if (!loggedIn || !film) return;
+    setWatchedPending(true);
+    try {
+      await toggleWatched({ id: film.id, title: film.title });
+    } finally {
+      setWatchedPending(false);
     }
   };
 
@@ -233,10 +263,17 @@ export function FilmPage() {
                 className="text-xs font-mono px-2 py-1 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] transition-colors">
                 IMDB ↗
               </a>
-              {!loadingSimilar && similar.length === 0 && (
-                <button onClick={fetchSimilar}
-                  className="text-xs font-mono px-2 py-1 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] transition-colors">
-                  ∿ FIND SIMILAR
+              {loggedIn && film && (
+                <button
+                  onClick={handleToggleWatched}
+                  disabled={watchedPending}
+                  title={watchedIds.has(film.id) ? "Remove from watch history" : "Mark as watched"}
+                  className={`text-xs font-mono px-3 py-1 border transition-colors disabled:opacity-40 ${
+                    watchedIds.has(film.id)
+                      ? "border-[#4caf50] text-[#4caf50] hover:border-[#e53935] hover:text-[#e53935]"
+                      : "border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)]"
+                  }`}>
+                  {watchedPending ? "…" : watchedIds.has(film.id) ? "WATCHED ✓" : "MARK WATCHED"}
                 </button>
               )}
               <button
@@ -254,21 +291,31 @@ export function FilmPage() {
           </div>
         </div>
 
-        {/* Similar films */}
-        {(loadingSimilar || similar.length > 0) && (
-          <div>
-            <div className="text-[var(--term-dark)] text-[10px] font-mono uppercase tracking-widest mb-3">∿ similar films</div>
-            {loadingSimilar ? (
-              <div className="text-[var(--term-mid)] text-sm font-mono"><span className="cursor">SCANNING</span></div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                {similar.map((f, i) => (
-                  <FilmCard key={f.id} film={f} index={i} />
-                ))}
-              </div>
+        {/* Similar films — always shown, auto-loaded */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-[var(--term-dark)] text-[10px] font-mono uppercase tracking-widest">
+              ∿ similar films
+            </div>
+            {similar.length > 0 && (
+              <button
+                onClick={reshuffleSimilar}
+                className="text-[9px] font-mono text-[var(--term-dark)] hover:text-[var(--term-bright)] transition-colors px-2 py-1 border border-[var(--term-dark)] hover:border-[var(--term-bright)]"
+              >
+                ↺ shuffle
+              </button>
             )}
           </div>
-        )}
+          {loadingSimilar ? (
+            <div className="text-[var(--term-mid)] text-sm font-mono"><span className="cursor">SCANNING</span></div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3">
+              {similar.map((f, i) => (
+                <FilmCard key={f.id} film={f} index={i} />
+              ))}
+            </div>
+          )}
+        </div>
 
       </div>
     </div>

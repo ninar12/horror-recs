@@ -20,6 +20,14 @@ export const api = {
       form.append("password", password);
       return client.post("/auth/login", form);
     },
+    me: () => client.get("/auth/me"),
+  },
+  history: {
+    list: () => client.get("/history"),
+    ids: () => client.get("/history/ids"),
+    log: (body: { film_id: string; film_title: string; rating?: number }) =>
+      client.post("/history", body),
+    remove: (filmId: string) => client.delete(`/history/${filmId}`),
   },
   search: {
     query: (q: string, opts?: { niche_min?: number; niche_max?: number; exclude?: string }) =>

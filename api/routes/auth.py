@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi import Depends
 from pydantic import BaseModel, EmailStr
-from api.services.auth import hash_password, verify_password, create_token
+from api.services.auth import hash_password, verify_password, create_token, get_current_user_id
 from api.services.database import get_session, User
 import uuid
 
@@ -48,3 +48,17 @@ def login(form: OAuth2PasswordRequestForm = Depends()):
         )
 
     return {"access_token": create_token(user.id), "token_type": "bearer"}
+
+
+@router.get("/me")
+def me(user_id: str = Depends(get_current_user_id)):
+    session = get_session()
+    user = session.query(User).filter_by(id=user_id).first()
+    session.close()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {
+        "id": user.id,
+        "email": user.email,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+    }

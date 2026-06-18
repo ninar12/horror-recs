@@ -148,13 +148,12 @@ def similar_search(
     query = f"{body.title}: " + " ".join(parts) if parts else body.title
 
     niche_filter = {"niche_score": {"$gte": niche_min, "$lte": niche_max}}
-    # Pull extra candidates so we can drop the source film itself
     candidates = search_films(query, top_k=CANDIDATE_POOL + 5, filter_dict=niche_filter)
     candidates = [c for c in candidates if c["id"] != body.film_id][:CANDIDATE_POOL]
 
     context = _get_user_context(user_id) if user_id else {}
     ranked = enrich_with_posters(
-        rerank_and_explain(query, candidates, context, similar_to=body.title)
+        rerank_and_explain(query, candidates, context, similar_to=body.title, top_n=12)
     )
     return SearchResponse(films=ranked, total=len(ranked), query_used=f"similar to: {body.title}")
 

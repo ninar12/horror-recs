@@ -28,22 +28,24 @@ import json
 import os
 import re
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import httpx
 from dotenv import load_dotenv
+from pinecone import Pinecone
 
 load_dotenv()
 
 OMDB_API_KEY = os.environ.get("OMDB_API_KEY", "")
 DATA_PATH    = Path(__file__).resolve().parent.parent / "data" / "raw_films.json"
 
-OMDB_LIMIT  = 5_000   # set lower if on free tier (1000/day)
+OMDB_LIMIT  = 950     # free tier is 1,000/day — stay safely under
 LB_LIMIT    = 10_000
-WORKERS     = 10
-SLEEP_OMDB  = 0.05    # ~20 req/s, well within OMDb limits
-SLEEP_LB    = 0.15    # be polite to Letterboxd
+WORKERS     = 1       # free tier: serial only, avoid hammering the daily limit
+SLEEP_OMDB  = 0.15    # give OMDb breathing room
+SLEEP_LB    = 0.35    # be polite to Letterboxd
 
 # ── Weights (must sum to 1.0) ────────────────────────────────────────────────
 W_IMDB = 0.30
@@ -232,11 +234,41 @@ def main() -> None:
     consensus_found = sum(1 for f in films if f.get("consensus_score") is not None)
     print(f"  Consensus scores computed: {consensus_found}/{len(films)}")
 
-    # ── Save ──────────────────────────────────────────────────────────────────
+    # ── Save to raw_films.json ────────────────────────────────────────────────
     with open(DATA_PATH, "w") as f:
         json.dump(films, f, indent=2)
-    print("Done — raw_films.json updated.")
-    print("Next step: re-run embed_and_index.py to push new fields to Pinecone.")
+    print("raw_films.json updated.")
+
+    # ── Push rating fields to Pinecone (metadata-only update, no re-embed) ───
+    print("Pushing rating fields to Pinecone...")
+    pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
+    idx = pc.Index(os.environ.get("PINECONE_INDEX_NAME", "horror-films"))
+    pushed = 0
+    skipped = 0
+    for i, film in enumerate(films):
+        rt = film.get("rt_score")
+        lb = film.get("lb_rating")
+        cs = film.get("consensus_score")
+        if rt is None and lb is None and cs is None:
+            skipped += 1
+            continue
+        film_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{film['title']}-{film['year']}"))
+        meta: dict = {}
+        if rt is not None:
+            meta["rt_score"] = float(rt)
+        if lb is not None:
+            meta["lb_rating"] = float(lb)
+        if cs is not None:
+            meta["consensus_score"] = float(cs)
+        try:
+            idx.update(id=film_id, set_metadata=meta, namespace="__default__")
+            pushed += 1
+        except Exception as e:
+            pass
+        if (i + 1) % 500 == 0:
+            print(f"  Pinecone: {i+1}/{len(films)} processed")
+            time.sleep(0.3)
+    print(f"Done — {pushed} Pinecone records updated, {skipped} had no ratings to push.")
 
 
 if __name__ == "__main__":

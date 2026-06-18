@@ -23,11 +23,63 @@ def _get_client() -> genai.Client:
 
 
 def _generate(prompt: str) -> str:
-    response = _get_client().models.generate_content(
-        model="gemini-2.5-flash-lite",
-        contents=prompt,
-    )
-    return response.text
+    import time
+    last_exc = None
+    for attempt in range(3):
+        try:
+            response = _get_client().models.generate_content(
+                model="gemini-2.5-flash-lite",
+                contents=prompt,
+            )
+            return response.text
+        except Exception as e:
+            last_exc = e
+            if attempt < 2:
+                time.sleep(1.5)
+    raise last_exc
+
+
+def _parse_rankings(text: str) -> list:
+    """Extract a JSON array from Gemini's response, trying multiple strategies."""
+    text = text.strip()
+
+    # Strategy 1: direct parse
+    try:
+        result = json.loads(text)
+        if isinstance(result, list):
+            return result
+        if isinstance(result, dict):
+            for v in result.values():
+                if isinstance(v, list):
+                    return v
+    except json.JSONDecodeError:
+        pass
+
+    # Strategy 2: strip markdown fences
+    cleaned = re.sub(r"^```(?:json)?\s*", "", text, flags=re.MULTILINE)
+    cleaned = re.sub(r"\s*```\s*$", "", cleaned, flags=re.MULTILINE).strip()
+    try:
+        result = json.loads(cleaned)
+        if isinstance(result, list):
+            return result
+        if isinstance(result, dict):
+            for v in result.values():
+                if isinstance(v, list):
+                    return v
+    except json.JSONDecodeError:
+        pass
+
+    # Strategy 3: find the first [...] array in the text
+    match = re.search(r"\[.*?\]", text, re.DOTALL)
+    if match:
+        try:
+            result = json.loads(match.group())
+            if isinstance(result, list):
+                return result
+        except json.JSONDecodeError:
+            pass
+
+    raise ValueError(f"Could not parse JSON from Gemini response: {text[:200]}")
 
 
 def rerank_and_explain(
@@ -35,6 +87,7 @@ def rerank_and_explain(
     candidates: list[dict],
     user_context: dict | None = None,
     similar_to: str | None = None,
+    top_n: int = 8,
 ) -> list[dict]:
     """Rerank candidates and generate match explanations using Gemini.
 
@@ -72,7 +125,7 @@ Candidates: {candidates_json}
 Rank by how closely they share the *feel* of "{similar_to}" — not just genre overlap, but mood, pacing, and dread quality.
 Strongly prefer obscure and under-seen titles. Avoid mainstream picks unless they are genuinely the closest match.
 
-Return JSON array of top 8, best match first. Each item: {{"id":"...","rank":1,"why":"one sentence on the specific atmospheric similarity","score":0.9}}
+Return JSON array of top {top_n}, best match first. Each item: {{"id":"...","rank":1,"why":"one sentence on the specific atmospheric similarity","score":0.9}}
 Return ONLY valid JSON, no markdown."""
     else:
         prompt = f"""You are a horror film expert and curator with deep knowledge of international and obscure cinema.
@@ -83,19 +136,14 @@ Candidates: {candidates_json}
 Rank the best matches. When films are equally relevant, STRONGLY prefer the more obscure and under-seen titles.
 Avoid defaulting to well-known mainstream picks unless they are clearly the best possible fit.
 
-Return JSON array of top 8, best match first. Each item: {{"id":"...","rank":1,"why":"one sentence why this film fits — mention what makes it distinctive","score":0.9}}
+Return JSON array of top {top_n}, best match first. Each item: {{"id":"...","rank":1,"why":"one sentence why this film fits — mention what makes it distinctive","score":0.9}}
 Return ONLY valid JSON, no markdown."""
 
     try:
-        text = _generate(prompt).strip()
-        # Strip markdown code fences Gemini sometimes adds
-        if text.startswith("```"):
-            text = re.sub(r"^```(?:json)?\s*", "", text)
-            text = re.sub(r"\s*```$", "", text)
-        rankings = json.loads(text.strip())
-        if isinstance(rankings, dict):
-            rankings = next(iter(rankings.values()))
-    except Exception:
+        text = _generate(prompt)
+        rankings = _parse_rankings(text)
+    except Exception as e:
+        print(f"[rerank_and_explain] failed: {e}")
         return candidates[:8]
 
     rank_map = {r["id"]: r for r in rankings}
