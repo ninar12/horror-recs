@@ -10,6 +10,7 @@ interface Film {
   year: number;
   director?: string;
   genres?: string[];
+  keywords?: string[];
   synopsis?: string;
   atmosphere?: string;
   imdb_rating?: number;
@@ -65,6 +66,24 @@ function RatingBadge({ label, value, color, href }: RatingBadgeProps) {
         {value}
       </span>
     </a>
+  );
+}
+
+export function ExpandableText({ label, text }: { label: string; text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="text-xs font-mono text-[var(--term-mid)] leading-relaxed">
+      <span className="text-[var(--term-dark)]">{label}  </span>
+      <span>{expanded ? text : text.slice(0, 120)}{!expanded && text.length > 120 ? "…" : ""}</span>
+      {text.length > 120 && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="ml-1.5 text-[10px] text-[var(--term-dark)] hover:text-[var(--term-bright)] transition-colors"
+        >
+          [{expanded ? "less" : "more"}]
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -210,12 +229,12 @@ function FilmModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Poster column */}
-        <div className="sm:w-80 shrink-0 bg-black">
+        <div className="sm:w-80 shrink-0 bg-black flex flex-col">
           {film.poster_url ? (
             <img
               src={film.poster_url}
               alt={film.title}
-              className="w-full h-full object-cover"
+              className="w-full object-cover"
               style={{ maxHeight: "480px" }}
               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
             />
@@ -224,6 +243,15 @@ function FilmModal({
               ?
             </div>
           )}
+          {film.keywords?.length ? (
+            <div className="flex flex-wrap gap-1.5 p-3 border-t border-[var(--term-dark)]">
+              {film.keywords.slice(0, 5).map((k) => (
+                <span key={k} className="text-[9px] font-mono px-1.5 py-px border border-[var(--term-dark)] text-[var(--term-mid)]">
+                  {k.toLowerCase().replace(/ /g, "_")}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         {/* Details column */}
@@ -237,7 +265,7 @@ function FilmModal({
               </h2>
               <button
                 onClick={onClose}
-                className="text-[var(--term-dark)] hover:text-[var(--term-bright)] text-xl leading-none shrink-0 mt-1"
+                className="text-[var(--term-mid)] hover:text-[var(--term-bright)] border border-[var(--term-dark)] hover:border-[var(--term-bright)] w-7 h-7 flex items-center justify-center shrink-0 transition-colors text-sm leading-none"
               >
                 ✕
               </button>
@@ -250,10 +278,7 @@ function FilmModal({
                 <span className="text-sm font-mono text-[var(--term-mid)]">{film.director}</span>
               )}
               {tier && film.niche_score != null && (
-                <span
-                  className="text-[10px] font-mono px-1.5 py-px border"
-                  style={{ color: tier.color, borderColor: tier.color }}
-                >
+                <span className="text-[10px] font-mono px-1.5 py-px border" style={{ color: tier.color, borderColor: tier.color }}>
                   {tier.label} {film.niche_score}/10
                 </span>
               )}
@@ -264,41 +289,13 @@ function FilmModal({
           {(film.imdb_rating != null || film.rt_score != null || film.lb_rating != null) && (
             <div className="flex gap-2 flex-wrap">
               {film.imdb_rating != null && (
-                <RatingBadge
-                  label="IMDb"
-                  value={film.imdb_rating.toFixed(1)}
-                  color={scoreColor(film.imdb_rating, 10)}
-                  href={imdbUrl}
-                />
+                <RatingBadge label="IMDb" value={film.imdb_rating.toFixed(1)} color={scoreColor(film.imdb_rating, 10)} href={imdbUrl} />
               )}
               {film.rt_score != null && (
-                <RatingBadge
-                  label="RT"
-                  value={`${film.rt_score}%`}
-                  color={scoreColor(film.rt_score, 100)}
-                  href={rtUrl}
-                />
+                <RatingBadge label="RT" value={`${film.rt_score}%`} color={scoreColor(film.rt_score, 100)} href={rtUrl} />
               )}
               {film.lb_rating != null && (
-                <RatingBadge
-                  label="Letterboxd"
-                  value={film.lb_rating.toFixed(1)}
-                  color={scoreColor(film.lb_rating, 5)}
-                  href={letterboxdUrl}
-                />
-              )}
-              {film.consensus_score != null && (
-                <div className="flex flex-col items-center gap-0.5 px-3 py-2 border border-[var(--term-bright)] min-w-[60px]">
-                  <span className="text-[9px] font-mono text-[var(--term-dark)] uppercase tracking-widest leading-none">
-                    consensus
-                  </span>
-                  <span
-                    className="text-xl font-['VT323'] leading-none"
-                    style={{ color: scoreColor(film.consensus_score, 10) }}
-                  >
-                    {film.consensus_score.toFixed(1)}
-                  </span>
-                </div>
+                <RatingBadge label="Letterboxd" value={film.lb_rating.toFixed(1)} color={scoreColor(film.lb_rating, 5)} href={letterboxdUrl} />
               )}
             </div>
           )}
@@ -313,57 +310,38 @@ function FilmModal({
             </p>
           )}
 
-          {/* Synopsis */}
-          {film.synopsis && (
-            <div className="text-xs font-mono text-[var(--term-mid)] leading-relaxed">
-              <span className="text-[var(--term-dark)]">SYNOPSIS  </span>
-              {film.synopsis}
-            </div>
-          )}
+          {film.synopsis && <ExpandableText label="SYNOPSIS" text={film.synopsis} />}
+          {film.atmosphere && <ExpandableText label="ATMOSPHERE" text={film.atmosphere} />}
 
-          {/* Atmosphere */}
-          {film.atmosphere && (
-            <div className="text-xs font-mono text-[var(--term-mid)] leading-relaxed">
-              <span className="text-[var(--term-dark)]">ATMOSPHERE  </span>
-              {film.atmosphere}
-            </div>
-          )}
-
-          {/* Genres */}
-          {film.genres?.length ? (
-            <div className="flex flex-wrap gap-1.5">
-              {film.genres.map((g) => (
-                <span key={g} className="text-[9px] font-mono px-1.5 py-px border border-[var(--term-dark)] text-[var(--term-dark)]">
-                  {g.toLowerCase().replace(/ /g, "_")}
-                </span>
-              ))}
-            </div>
-          ) : null}
 
           {/* Streaming */}
           {film.streaming_platforms?.length ? (
-            <div className="text-xs font-mono">
-              <span className="text-[var(--term-dark)]">STREAM  </span>
-              <span className="text-[var(--term-bright)]">
-                {film.streaming_platforms.join(" · ")}
-              </span>
+            <div>
+              <div className="text-[10px] font-mono text-[var(--term-dark)] uppercase tracking-widest mb-2">STREAM</div>
+              <div className="flex flex-wrap gap-1.5">
+                {film.streaming_platforms.map((p) => (
+                  <span key={p} className="text-[11px] font-mono px-2 py-0.5 border border-[var(--term-dark)] text-[var(--term-mid)] bg-black/40 hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] transition-colors">
+                    {p}
+                  </span>
+                ))}
+              </div>
             </div>
           ) : null}
 
           {/* Footer: links + save */}
           <div className="flex items-center gap-2 pt-1 flex-wrap">
             <a href={letterboxdUrl} target="_blank" rel="noopener noreferrer"
-              className="text-xs font-mono px-2 py-1 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] transition-colors">
+              className="text-xs font-mono px-2 py-1 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-mid)] transition-colors">
               LETTERBOXD ↗
             </a>
             <a href={imdbUrl} target="_blank" rel="noopener noreferrer"
-              className="text-xs font-mono px-2 py-1 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] transition-colors">
+              className="text-xs font-mono px-2 py-1 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-mid)] transition-colors">
               IMDB ↗
             </a>
             <button
               onClick={fetchSimilar}
               disabled={loadingSimilar || similarFilms.length > 0}
-              className="text-xs font-mono px-2 py-1 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] disabled:opacity-40 transition-colors"
+              className="text-xs font-mono px-2 py-1 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-mid)] disabled:opacity-40 transition-colors"
             >
               {loadingSimilar ? "SCANNING…" : similarFilms.length > 0 ? "SIMILAR ✓" : "∿ FIND SIMILAR"}
             </button>
@@ -371,10 +349,10 @@ function FilmModal({
               onClick={added ? handleRemove : openWatchlistPicker}
               disabled={adding || removing}
               title={added ? "Click to remove from watchlist" : "Save to watchlist"}
-              className={`ml-auto text-xs font-mono px-3 py-1 border transition-colors disabled:opacity-40 ${
+              className={`ml-auto text-xs font-mono px-4 py-1.5 border transition-colors disabled:opacity-40 font-bold tracking-wide ${
                 added
                   ? "border-[var(--term-mid)] text-[var(--term-mid)] hover:border-[#e53935] hover:text-[#e53935]"
-                  : "border-[var(--term-bright)] text-[var(--term-bright)] hover:bg-[var(--term-bright-10)]"
+                  : "bg-[var(--term-bright)] border-[var(--term-bright)] text-black hover:opacity-90"
               }`}
             >
               {removing ? "REMOVING…" : added ? "SAVED ✓" : adding ? "SAVING…" : "+ SAVE"}
@@ -509,6 +487,15 @@ export function FilmCard({ film, watchlistId, onAdded, onFindSimilar, index }: P
               {tier.label}
             </span>
           )}
+          {film.keywords?.length ? (
+            <div className="flex flex-wrap gap-1">
+              {film.keywords.slice(0, 3).map((k) => (
+                <span key={k} className="text-[9px] font-mono px-1 py-px border border-[var(--term-dark)] text-[var(--term-dark)] leading-none">
+                  {k.toLowerCase().replace(/ /g, "_")}
+                </span>
+              ))}
+            </div>
+          ) : null}
           <div className="mt-auto pt-2">
             <a
               href={imdbUrl}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api";
-import { FilmCard } from "../components/FilmCard";
+import { FilmCard, ExpandableText } from "../components/FilmCard";
 import { useAuth } from "../contexts/AuthContext";
 
 function scoreColor(val: number, max: number) {
@@ -60,7 +60,7 @@ export function FilmPage() {
   if (!film) {
     return (
       <div className="flex items-center justify-center h-full text-[var(--term-mid)] font-mono text-sm">
-        // film not found · <button onClick={() => navigate(-1)} className="underline ml-1">go back</button>
+        // film not found · <button onClick={() => navigate("/")} className="underline ml-1">go back</button>
       </div>
     );
   }
@@ -138,7 +138,7 @@ export function FilmPage() {
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center bg-black/80 backdrop-blur-sm overflow-y-auto"
-      onClick={() => navigate(-1)}
+      onClick={() => navigate("/")}
     >
       <div
         className="relative w-full max-w-5xl mx-auto px-4 py-6 my-4"
@@ -146,7 +146,7 @@ export function FilmPage() {
       >
         {/* X button */}
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/")}
           className="absolute top-8 right-6 text-[var(--term-mid)] hover:text-[var(--term-bright)] text-xl leading-none z-10 transition-colors"
         >
           ✕
@@ -157,7 +157,7 @@ export function FilmPage() {
           style={{ borderTopColor: accentColor, borderTopWidth: "3px" }}>
 
           {/* Poster */}
-          <div className="sm:w-72 shrink-0">
+          <div className="sm:w-72 shrink-0 flex flex-col">
             {film.poster_url ? (
               <img src={film.poster_url} alt={film.title}
                 className="w-full object-cover border border-[var(--term-dark)]"
@@ -166,6 +166,15 @@ export function FilmPage() {
             ) : (
               <div className="w-full bg-black border border-[var(--term-dark)] flex items-center justify-center font-['VT323'] text-[var(--term-dark)] text-8xl"
                 style={{ aspectRatio: "2/3" }}>?</div>
+            )}
+            {film.keywords?.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-2.5">
+                {film.keywords.slice(0, 5).map((k: string) => (
+                  <span key={k} className="text-[9px] font-mono px-1.5 py-px border border-[var(--term-dark)] text-[var(--term-mid)]">
+                    {k.toLowerCase().replace(/ /g, "_")}
+                  </span>
+                ))}
+              </div>
             )}
           </div>
 
@@ -220,47 +229,32 @@ export function FilmPage() {
               </p>
             )}
 
-            {/* Synopsis */}
-            {film.synopsis && (
-              <div className="text-sm font-mono text-[var(--term-mid)] leading-relaxed">
-                <span className="text-[var(--term-dark)]">SYNOPSIS  </span>{film.synopsis}
-              </div>
-            )}
+            {film.synopsis && <ExpandableText label="SYNOPSIS" text={film.synopsis} />}
+            {film.atmosphere && <ExpandableText label="ATMOSPHERE" text={film.atmosphere} />}
 
-            {/* Atmosphere */}
-            {film.atmosphere && (
-              <div className="text-sm font-mono text-[var(--term-mid)] leading-relaxed">
-                <span className="text-[var(--term-dark)]">ATMOSPHERE  </span>{film.atmosphere}
-              </div>
-            )}
-
-            {/* Genres */}
-            {film.genres?.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {film.genres.map((g: string) => (
-                  <span key={g} className="text-[9px] font-mono px-1.5 py-px border border-[var(--term-dark)] text-[var(--term-dark)]">
-                    {g.toLowerCase().replace(/ /g, "_")}
-                  </span>
-                ))}
-              </div>
-            )}
 
             {/* Streaming */}
             {film.streaming_platforms?.length > 0 && (
-              <div className="text-xs font-mono">
-                <span className="text-[var(--term-dark)]">STREAM  </span>
-                <span className="text-[var(--term-bright)]">{film.streaming_platforms.join(" · ")}</span>
+              <div>
+                <div className="text-[10px] font-mono text-[var(--term-dark)] uppercase tracking-widest mb-2">STREAM</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {film.streaming_platforms.map((p: string) => (
+                    <span key={p} className="text-[11px] font-mono px-2 py-0.5 border border-[var(--term-dark)] text-[var(--term-mid)] bg-black/40 hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] transition-colors">
+                      {p}
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
 
             {/* Actions */}
-            <div className="flex gap-2 flex-wrap pt-1">
+            <div className="flex gap-2 flex-wrap pt-1 items-center">
               <a href={letterboxdUrl} target="_blank" rel="noopener noreferrer"
-                className="text-xs font-mono px-2 py-1 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] transition-colors">
+                className="text-xs font-mono px-2 py-1 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-mid)] transition-colors">
                 LETTERBOXD ↗
               </a>
               <a href={imdbUrl} target="_blank" rel="noopener noreferrer"
-                className="text-xs font-mono px-2 py-1 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] transition-colors">
+                className="text-xs font-mono px-2 py-1 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-mid)] transition-colors">
                 IMDB ↗
               </a>
               {loggedIn && film && (
@@ -271,7 +265,7 @@ export function FilmPage() {
                   className={`text-xs font-mono px-3 py-1 border transition-colors disabled:opacity-40 ${
                     watchedIds.has(film.id)
                       ? "border-[#4caf50] text-[#4caf50] hover:border-[#e53935] hover:text-[#e53935]"
-                      : "border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)]"
+                      : "border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[#4caf50] hover:border-[#4caf50]"
                   }`}>
                   {watchedPending ? "…" : watchedIds.has(film.id) ? "WATCHED ✓" : "MARK WATCHED"}
                 </button>
@@ -280,10 +274,10 @@ export function FilmPage() {
                 onClick={added ? unsave : save}
                 disabled={adding || removing}
                 title={added ? "Click to remove from watchlist" : "Save to watchlist"}
-                className={`text-xs font-mono px-3 py-1 border transition-colors disabled:opacity-40 ${
+                className={`text-xs font-mono px-4 py-1.5 border transition-colors disabled:opacity-40 font-bold tracking-wide ${
                   added
                     ? "border-[var(--term-mid)] text-[var(--term-mid)] hover:border-[#e53935] hover:text-[#e53935]"
-                    : "border-[var(--term-bright)] text-[var(--term-bright)] hover:bg-[var(--term-bright-10)]"
+                    : "bg-[var(--term-bright)] border-[var(--term-bright)] text-black hover:opacity-90"
                 }`}>
                 {removing ? "REMOVING…" : added ? "SAVED ✓" : adding ? "SAVING…" : "+ SAVE"}
               </button>

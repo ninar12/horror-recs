@@ -183,6 +183,18 @@ Do NOT mention specific film titles. Return ONLY the rewritten description."""
     return _generate(prompt).strip()
 
 
+def synthesize_image_queries(queries: list[str]) -> str:
+    """Merge multiple per-image vibe descriptions into one unified search query."""
+    joined = "\n".join(f"- {q}" for q in queries)
+    prompt = f"""You are an expert horror film curator. A user uploaded {len(queries)} images and each evokes a different horror atmosphere:
+
+{joined}
+
+Synthesize these into ONE unified 2-sentence search query that captures the shared mood, aesthetic, and dread quality across all images. Focus on what they have in common — tone, texture, era, feeling.
+Return ONLY the synthesized query string, no preamble."""
+    return _generate(prompt).strip()
+
+
 def image_to_horror_query(image_bytes: bytes, mime_type: str) -> str:
     """Use Gemini Vision to turn an image into a horror-film atmosphere search query."""
     from google.genai import types

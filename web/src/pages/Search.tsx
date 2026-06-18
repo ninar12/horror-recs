@@ -68,8 +68,8 @@ export function SearchPage() {
   const [nicheMin, setNicheMin] = useState(3);
   const [nicheEnabled, setNicheEnabled] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -88,9 +88,9 @@ export function SearchPage() {
 
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-  const run = async (q: string, imgFile?: File) => {
-    const useImage = imgFile ?? imageFile;
-    if (!useImage && !q.trim()) return;
+  const run = async (q: string, imgFiles?: File[]) => {
+    const useImages = imgFiles ?? imageFiles;
+    if (!useImages.length && !q.trim()) return;
     setLoading(true);
     setAllFilms([]);
     setSimilarSection(null);
@@ -100,8 +100,8 @@ export function SearchPage() {
     const effectiveMin = nicheEnabled ? nicheMin : 1;
     try {
       let res;
-      if (useImage) {
-        res = await api.search.image(useImage, { niche_min: effectiveMin });
+      if (useImages.length) {
+        res = await api.search.image(useImages, { niche_min: effectiveMin });
       } else {
         const exclude = [...seenIds.current].slice(-50).join(",");
         res = await api.search.query(q, { niche_min: effectiveMin, exclude });
@@ -114,7 +114,7 @@ export function SearchPage() {
       setQueryUsed(res.data.query_used || q);
 
       // If query looks like a title and top result matches, fetch similar films
-      if (!useImage && deduped.length > 0 && q.trim().split(/\s+/).length <= 5) {
+      if (!useImages.length && deduped.length > 0 && q.trim().split(/\s+/).length <= 5) {
         const anchor = deduped[0];
         const nq = norm(q.trim());
         const nt = norm(anchor.title);
@@ -145,27 +145,35 @@ export function SearchPage() {
     run(q);
   };
 
-  const handleImageFile = useCallback((file: File) => {
-    if (!file.type.startsWith("image/")) return;
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
+  const addImageFiles = useCallback((incoming: File[]) => {
+    const valid = incoming.filter((f) => f.type.startsWith("image/"));
+    setImageFiles((prev) => {
+      const combined = [...prev, ...valid].slice(0, 5);
+      setImagePreviews(combined.map((f) => URL.createObjectURL(f)));
+      return combined;
+    });
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault(); setDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleImageFile(file);
-  }, [handleImageFile]);
+    addImageFiles(Array.from(e.dataTransfer.files));
+  }, [addImageFiles]);
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleImageFile(file);
+    if (e.target.files) addImageFiles(Array.from(e.target.files));
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const clearImage = () => {
-    setImageFile(null);
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
-    setImagePreview(null);
+  const removeImage = (idx: number) => {
+    URL.revokeObjectURL(imagePreviews[idx]);
+    setImageFiles((prev) => prev.filter((_, i) => i !== idx));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const clearImages = () => {
+    imagePreviews.forEach((p) => URL.revokeObjectURL(p));
+    setImageFiles([]);
+    setImagePreviews([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -193,31 +201,47 @@ export function SearchPage() {
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}>
         <div className="text-[var(--term-dark)] text-[10px] mb-1.5 select-none">root@reelscream:~$</div>
-        {imagePreview && (
-          <div className="relative mb-2">
-            <img src={imagePreview} alt="attached" className="w-full h-28 object-cover border border-[var(--term-bright)]" />
-            <button type="button" onClick={clearImage}
-              className="absolute top-1 right-1 bg-black/80 text-[var(--term-bright)] text-xs px-1.5 py-0.5 font-mono hover:bg-black">
-              X
-            </button>
+        {imagePreviews.length > 0 && (
+          <div className="mb-2">
+            <div className="flex gap-1.5 flex-wrap mb-1">
+              {imagePreviews.map((src, i) => (
+                <div key={i} className="relative w-16 h-16 shrink-0">
+                  <img src={src} alt="" className="w-full h-full object-cover border border-[var(--term-dark)]" />
+                  <button type="button" onClick={() => removeImage(i)}
+                    className="absolute top-0.5 right-0.5 bg-black/90 text-[var(--term-mid)] hover:text-[var(--term-bright)] text-[10px] w-4 h-4 flex items-center justify-center leading-none">
+                    ✕
+                  </button>
+                </div>
+              ))}
+              {imagePreviews.length < 5 && (
+                <button type="button" onClick={() => fileInputRef.current?.click()}
+                  className="w-16 h-16 border border-dashed border-[var(--term-dark)] text-[var(--term-dark)] hover:border-[var(--term-bright)] hover:text-[var(--term-bright)] text-xl flex items-center justify-center transition-colors shrink-0">
+                  +
+                </button>
+              )}
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-mono text-[var(--term-dark)]">{imagePreviews.length}/5 images</span>
+              <button type="button" onClick={clearImages} className="text-[9px] font-mono text-[var(--term-dark)] hover:text-[#e53935] transition-colors">clear all</button>
+            </div>
           </div>
         )}
         <textarea ref={textareaRef} value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); run(query); } }}
-          placeholder={imagePreview ? "optional: add context for the image..." : "describe a vibe, mood, film title, or drag a photo here..."}
+          placeholder={imagePreviews.length ? "optional: add context..." : "describe a vibe, mood, film title, or drag photos here..."}
           rows={3}
           className={`w-full bg-black border text-[var(--term-bright)] px-2 py-2 text-sm placeholder:text-[var(--term-dark)] focus:outline-none resize-none transition-colors ${dragOver ? "border-[var(--term-bright)]" : "border-[var(--term-dark)] focus:border-[var(--term-bright)]"}`}
         />
-        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileInput} className="sr-only" />
+        <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileInput} className="sr-only" />
         <div className="flex gap-2 mt-2">
-          <button type="submit" disabled={loading || (!query.trim() && !imageFile)}
+          <button type="submit" disabled={loading || (!query.trim() && !imageFiles.length)}
             className="flex-1 py-2.5 border border-[var(--term-bright)] text-[var(--term-bright)] hover:bg-[var(--term-bright-10)] text-sm disabled:opacity-30 transition-colors">
             {loading ? <span className="cursor">SCANNING</span> : "[EXECUTE]"}
           </button>
-          <button type="button" onClick={() => fileInputRef.current?.click()} disabled={loading}
+          <button type="button" onClick={() => fileInputRef.current?.click()} disabled={loading || imageFiles.length >= 5}
             className="px-3 py-2.5 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] text-sm disabled:opacity-30 transition-colors"
-            title="Attach image">
+            title="Attach images (max 5)">
             IMG
           </button>
           <button type="button" onClick={handleRandom} disabled={loading}
