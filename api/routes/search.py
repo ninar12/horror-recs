@@ -185,20 +185,23 @@ async def image_search(
 
 @router.get("/platforms")
 def get_available_platforms():
-    """Get all unique streaming and rental platforms from the database."""
+    """Get all unique streaming and rental platforms from the database with popularity counts."""
     import json
     from pathlib import Path
+    from collections import Counter
 
     project_root = Path(__file__).resolve().parent.parent.parent
     data_path = project_root / "data" / "raw_films.json"
 
     if not data_path.exists():
-        return {"platforms": []}
+        return {"popular": [], "all": []}
 
     with open(data_path, 'r') as f:
         films = json.load(f)
 
-    platforms = set()
+    platform_count = Counter()
+    platforms_set = set()
+
     for film in films:
         if 'streaming_platforms' in film and film['streaming_platforms']:
             for p in film['streaming_platforms']:
@@ -207,7 +210,8 @@ def get_available_platforms():
                 else:
                     name = str(p)
                 if name and name != 'None':
-                    platforms.add(name)
+                    platform_count[name] += 1
+                    platforms_set.add(name)
         if 'rental_platforms' in film and film['rental_platforms']:
             for p in film['rental_platforms']:
                 if isinstance(p, dict):
@@ -215,19 +219,19 @@ def get_available_platforms():
                 else:
                     name = str(p)
                 if name and name != 'None':
-                    platforms.add(name)
+                    platform_count[name] += 1
+                    platforms_set.add(name)
 
-    # Sort and prioritize major services
-    major_services = {
-        "Netflix", "Hulu", "Amazon Prime Video", "Disney Plus", "HBO Max",
-        "Apple TV Store", "Paramount Plus Essential", "Paramount Plus Premium",
-        "Peacock Premium", "Peacock Premium Plus", "Shudder", "Starz",
-        "Criterion Channel", "MUBI", "Shout Factory", "Arrow", "BritBox"
+    # Get top 10 most popular platforms
+    popular_platforms = [p for p, _ in platform_count.most_common(10)]
+
+    # Sort all platforms, with popular ones first
+    sorted_platforms = sorted(list(platforms_set))
+    popular = [p for p in sorted_platforms if p in popular_platforms]
+    other = [p for p in sorted_platforms if p not in popular_platforms]
+
+    return {
+        "popular": popular,
+        "all": other,
+        "counts": {p: platform_count[p] for p in platforms_set}
     }
-
-    sorted_platforms = sorted(list(platforms))
-    # Move major services to front
-    major = [p for p in sorted_platforms if p in major_services]
-    other = [p for p in sorted_platforms if p not in major_services]
-
-    return {"platforms": major + other}

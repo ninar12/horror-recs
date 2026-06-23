@@ -36,7 +36,9 @@ export function ProfilePage() {
   const [savedCount, setSavedCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [platformsLoading, setPlatformsLoading] = useState(false);
-  const [availablePlatforms, setAvailablePlatforms] = useState<string[]>([]);
+  const [popularPlatforms, setPopularPlatforms] = useState<string[]>([]);
+  const [otherPlatforms, setOtherPlatforms] = useState<string[]>([]);
+  const [platformCounts, setPlatformCounts] = useState<Record<string, number>>({});
   const [activeTab, setActiveTab] = useState<"history" | "stats" | "platforms">("history");
   const [preferredPlatforms, setPreferredPlatforms] = useState<Set<string>>(() => {
     try {
@@ -63,7 +65,7 @@ export function ProfilePage() {
   }, [loggedIn]);
 
   useEffect(() => {
-    if (activeTab === "platforms" && availablePlatforms.length === 0 && !platformsLoading) {
+    if (activeTab === "platforms" && popularPlatforms.length === 0 && !platformsLoading) {
       loadPlatforms();
     }
   }, [activeTab]);
@@ -72,7 +74,9 @@ export function ProfilePage() {
     setPlatformsLoading(true);
     try {
       const res = await api.search.platforms();
-      setAvailablePlatforms(res.data.platforms || []);
+      setPopularPlatforms(res.data.popular || []);
+      setOtherPlatforms(res.data.all || []);
+      setPlatformCounts(res.data.counts || {});
     } catch (err) {
       console.error("Failed to load platforms:", err);
     } finally {
@@ -210,49 +214,90 @@ export function ProfilePage() {
         {/* Platforms Tab */}
         {activeTab === "platforms" && (
           <div className="space-y-4">
-            <div className="border border-[var(--term-dark)] bg-[var(--term-panel)] p-5">
-              <div className="text-[var(--term-mid)] text-xs mb-1">// preferred streaming platforms</div>
-              <div className="text-[var(--term-dark)] text-[10px] mb-4">
-                select the services you have access to — {availablePlatforms.length} services available
-              </div>
-              {platformsLoading ? (
+            {platformsLoading ? (
+              <div className="border border-[var(--term-dark)] bg-[var(--term-panel)] p-5">
                 <div className="text-[var(--term-mid)] text-xs">loading platforms...</div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {availablePlatforms.map((p) => {
-                    const active = preferredPlatforms.has(p);
-                    return (
-                      <button
-                        key={p}
-                        onClick={() => togglePlatform(p)}
-                        className={`text-xs font-mono px-3 py-1.5 border transition-colors ${
-                          active
-                            ? "bg-[var(--term-bright)] border-[var(--term-bright)] text-black"
-                            : "border-[var(--term-dark)] text-[var(--term-mid)] hover:border-[var(--term-mid)] hover:text-[var(--term-bright)]"
-                        }`}
-                      >
-                        {active ? "✓ " : ""}{p}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {preferredPlatforms.size > 0 && (
-                <button
-                  onClick={() => {
-                    setPreferredPlatforms(new Set());
-                    localStorage.removeItem(PLATFORMS_KEY);
-                  }}
-                  className="mt-4 text-[10px] font-mono text-[var(--term-dark)] hover:text-[#e53935] transition-colors"
-                >
-                  // clear all
-                </button>
-              )}
-            </div>
-            {preferredPlatforms.size > 0 && (
-              <div className="text-[var(--term-dark)] text-[10px]">
-                // {preferredPlatforms.size} platform{preferredPlatforms.size !== 1 ? "s" : ""} selected · saved locally
               </div>
+            ) : (
+              <>
+                {/* Popular Platforms Section */}
+                {popularPlatforms.length > 0 && (
+                  <div className="border border-[var(--term-bright)]/30 bg-[var(--term-bright)]/5 p-5">
+                    <div className="text-[var(--term-bright)] text-xs mb-1 font-bold">★ MOST POPULAR</div>
+                    <div className="text-[var(--term-dark)] text-[10px] mb-4">
+                      top {popularPlatforms.length} services by availability
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {popularPlatforms.map((p) => {
+                        const active = preferredPlatforms.has(p);
+                        const count = platformCounts[p] || 0;
+                        return (
+                          <button
+                            key={p}
+                            onClick={() => togglePlatform(p)}
+                            className={`text-xs font-mono px-3 py-1.5 border transition-colors group relative ${
+                              active
+                                ? "bg-[var(--term-bright)] border-[var(--term-bright)] text-black"
+                                : "border-[var(--term-bright)] text-[var(--term-bright)] hover:bg-[var(--term-bright-10)]"
+                            }`}
+                            title={`${count} films available`}
+                          >
+                            {active ? "✓ " : ""}{p}
+                            <span className="text-[10px] text-[var(--term-dark)] ml-1 opacity-60">
+                              {count}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* All Platforms Section */}
+                <div className="border border-[var(--term-dark)] bg-[var(--term-panel)] p-5">
+                  <div className="text-[var(--term-mid)] text-xs mb-1">// all services</div>
+                  <div className="text-[var(--term-dark)] text-[10px] mb-4">
+                    {popularPlatforms.length + otherPlatforms.length} total services
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {otherPlatforms.map((p) => {
+                      const active = preferredPlatforms.has(p);
+                      const count = platformCounts[p] || 0;
+                      return (
+                        <button
+                          key={p}
+                          onClick={() => togglePlatform(p)}
+                          className={`text-xs font-mono px-3 py-1.5 border transition-colors ${
+                            active
+                              ? "bg-[var(--term-bright)] border-[var(--term-bright)] text-black"
+                              : "border-[var(--term-dark)] text-[var(--term-mid)] hover:border-[var(--term-mid)] hover:text-[var(--term-bright)]"
+                          }`}
+                          title={`${count} films available`}
+                        >
+                          {active ? "✓ " : ""}{p}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {preferredPlatforms.size > 0 && (
+                    <button
+                      onClick={() => {
+                        setPreferredPlatforms(new Set());
+                        localStorage.removeItem(PLATFORMS_KEY);
+                      }}
+                      className="mt-4 text-[10px] font-mono text-[var(--term-dark)] hover:text-[#e53935] transition-colors"
+                    >
+                      // clear all
+                    </button>
+                  )}
+                </div>
+
+                {preferredPlatforms.size > 0 && (
+                  <div className="text-[var(--term-dark)] text-[10px]">
+                    // {preferredPlatforms.size} platform{preferredPlatforms.size !== 1 ? "s" : ""} selected · saved locally
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
