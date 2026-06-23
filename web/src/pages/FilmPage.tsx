@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { api } from "../api";
-import { FilmCard, ExpandableText } from "../components/FilmCard";
+import { FilmCard } from "../components/FilmCard";
 import { useAuth } from "../contexts/AuthContext";
 
 function scoreColor(val: number, max: number) {
@@ -95,22 +95,6 @@ export function FilmPage() {
   const letterboxdUrl = `https://letterboxd.com/search/${encodeURIComponent(film.title)}/`;
   const imdbUrl = `https://www.imdb.com/find/?q=${encodeURIComponent(`${film.title} ${film.year ?? ""}`)}`;
   const rtUrl = `https://www.rottentomatoes.com/search?search=${encodeURIComponent(film.title)}`;
-
-  const fetchSimilar = async () => {
-    setLoadingSimilar(true);
-    try {
-      const res = await api.search.similar({
-        film_id: film.id, title: film.title,
-        synopsis: film.synopsis, genres: film.genres,
-        atmosphere: film.atmosphere,
-      });
-      const pool = res.data.films || [];
-      setSimilarPool(pool);
-      setSimilar(shuffle(pool).slice(0, 8));
-    } finally {
-      setLoadingSimilar(false);
-    }
-  };
 
   const reshuffleSimilar = () => {
     if (similarPool.length === 0) return;
