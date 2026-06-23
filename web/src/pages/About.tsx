@@ -117,37 +117,79 @@ export function AboutPage() {
           <h2 className="font-['VT323'] text-lg sm:text-xl lg:text-2xl xl:text-3xl text-[#00ff00] tracking-widest mb-3 sm:mb-4 lg:mb-5 pb-2 border-b border-[#00ff00]/30">
             EXAMPLE SEARCH
           </h2>
-          <div className="bg-black/60 border border-[#00ff00]/40 p-4 sm:p-5 lg:p-6 mb-4 sm:mb-5">
-            <p className="font-mono text-xs sm:text-sm text-[#00ff00]/70 mb-2">&gt; query:</p>
-            <p className="text-lg sm:text-xl text-[#00ff00] font-['VT323'] tracking-wider mb-4">
-              lonely farmhouse southern gothic country dread and slow burn
-            </p>
-            <div className="space-y-3">
-              <ExampleResult
-                title="We Are Still Here"
-                year="2015"
-                niche="DEEP CUT"
-                imdb="6.9"
-                letterboxd="3.8"
-                why="Isolated New England farmhouse, creeping dread, perfectly paced slow burn with 70s atmosphere"
-              />
-              <ExampleResult
-                title="The House of the Devil"
-                year="2009"
-                niche="DEEP CUT"
-                imdb="6.6"
-                letterboxd="3.7"
-                why="Gorgeous dread built in solitary farmhouse, meticulous pacing, unsettling mood throughout"
-              />
-              <ExampleResult
-                title="When Animals Dream"
-                year="2014"
-                niche="HIDDEN GEM"
-                imdb="6.4"
-                letterboxd="3.5"
-                why="Rural Danish gothic, family horror on isolated property, methodical tension building"
-              />
+
+          {/* Flow Diagram */}
+          <div className="mb-6 sm:mb-8">
+            <div className="space-y-2 sm:space-y-3">
+              {/* Step 1 */}
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex-1 border border-[#00ff00]/30 p-2 sm:p-3 bg-black/40">
+                  <p className="font-mono text-xs text-[#00ff00]/60 mb-1">YOUR QUERY</p>
+                  <p className="text-xs sm:text-sm text-[#00ff00] font-['VT323']">lonely farmhouse southern gothic country dread and slow burn</p>
+                </div>
+                <div className="text-[#00ff00]/60 text-sm">→</div>
+              </div>
+
+              {/* Step 2 */}
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex-1 border border-[#00ff00]/30 p-2 sm:p-3 bg-black/40">
+                  <p className="font-mono text-xs text-[#00ff00]/60 mb-1">AI EXPANSION</p>
+                  <p className="text-xs text-[#00ff00]/80 italic">Enhanced to capture mood, atmosphere, pacing...</p>
+                </div>
+                <div className="text-[#00ff00]/60 text-sm">→</div>
+              </div>
+
+              {/* Step 3 */}
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex-1 border border-[#00ff00]/30 p-2 sm:p-3 bg-black/40">
+                  <p className="font-mono text-xs text-[#00ff00]/60 mb-1">SEMANTIC SEARCH</p>
+                  <p className="text-xs text-[#00ff00]/80 italic">Against 9,536 films using embeddings...</p>
+                </div>
+                <div className="text-[#00ff00]/60 text-sm">→</div>
+              </div>
+
+              {/* Step 4 */}
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex-1 border border-[#00ff00]/30 p-2 sm:p-3 bg-black/40">
+                  <p className="font-mono text-xs text-[#00ff00]/60 mb-1">RERANKING</p>
+                  <p className="text-xs text-[#00ff00]/80 italic">AI writes why each film matches...</p>
+                </div>
+                <div className="text-[#00ff00]/60 text-sm">→</div>
+              </div>
+
+              {/* Step 5 */}
+              <div className="border border-[#00ff00]/50 p-2 sm:p-3 bg-black/60">
+                <p className="font-mono text-xs text-[#00ff00]/60 mb-1">RESULTS</p>
+              </div>
             </div>
+          </div>
+
+          {/* Film Results with Images */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <ExampleResult
+              title="We Are Still Here"
+              year="2015"
+              niche="DEEP CUT"
+              imdb="6.9"
+              letterboxd="3.8"
+              why="Isolated New England farmhouse, creeping dread, perfectly paced slow burn with 70s atmosphere"
+            />
+            <ExampleResult
+              title="The House of the Devil"
+              year="2009"
+              niche="DEEP CUT"
+              imdb="6.6"
+              letterboxd="3.7"
+              why="Gorgeous dread built in solitary farmhouse, meticulous pacing, unsettling mood throughout"
+            />
+            <ExampleResult
+              title="When Animals Dream"
+              year="2014"
+              niche="HIDDEN GEM"
+              imdb="6.4"
+              letterboxd="3.5"
+              why="Rural Danish gothic, family horror on isolated property, methodical tension building"
+            />
           </div>
         </div>
 
@@ -224,23 +266,31 @@ function ExampleResult({
   title: string; year: string; niche: string; imdb: string; letterboxd: string; why: string;
 }) {
   return (
-    <div className="border border-[#00ff00]/30 p-3 sm:p-4 bg-black/40">
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex-1">
-          <h4 className="font-['VT323'] text-sm sm:text-base text-[#00ff00]">{title}</h4>
-          <p className="text-xs text-[#00ff00]/60 font-mono">{year}</p>
-        </div>
-        <span
-          className="text-[9px] font-mono px-2 py-1 border border-[#00ff00]/60 text-[#00ff00] whitespace-nowrap shrink-0"
-          style={{ backgroundColor: "rgba(0, 255, 0, 0.05)" }}
-        >
-          {niche}
-        </span>
+    <div className="border border-[#00ff00]/30 overflow-hidden bg-black/40 hover:border-[#00ff00]/60 transition-colors">
+      {/* Image Placeholder */}
+      <div className="w-full aspect-[3/4] bg-gradient-to-br from-[#00ff00]/10 to-[#00ff00]/5 border-b border-[#00ff00]/20 flex items-center justify-center text-[#00ff00]/30 text-xs text-center p-2">
+        <span className="font-mono">[POSTER IMAGE]</span>
       </div>
-      <p className="text-xs sm:text-sm text-[#00ff00]/80 leading-relaxed mb-2 italic">{why}</p>
-      <div className="flex gap-4 text-xs font-mono">
-        <span className="text-[#00ff00]/60">IMDb <span className="text-[#00ff00]">{imdb}</span></span>
-        <span className="text-[#00ff00]/60">Letterboxd <span className="text-[#00ff00]">{letterboxd}</span></span>
+
+      {/* Content */}
+      <div className="p-3 sm:p-4">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="flex-1">
+            <h4 className="font-['VT323'] text-sm sm:text-base text-[#00ff00] leading-tight">{title}</h4>
+            <p className="text-xs text-[#00ff00]/60 font-mono mt-1">{year}</p>
+          </div>
+          <span
+            className="text-[9px] font-mono px-2 py-1 border border-[#00ff00]/60 text-[#00ff00] whitespace-nowrap shrink-0"
+            style={{ backgroundColor: "rgba(0, 255, 0, 0.05)" }}
+          >
+            {niche}
+          </span>
+        </div>
+        <p className="text-xs sm:text-sm text-[#00ff00]/80 leading-relaxed mb-3 italic">{why}</p>
+        <div className="flex gap-3 text-xs font-mono">
+          <span className="text-[#00ff00]/60">IMDb <span className="text-[#00ff00]">{imdb}</span></span>
+          <span className="text-[#00ff00]/60">Letterboxd <span className="text-[#00ff00]">{letterboxd}</span></span>
+        </div>
       </div>
     </div>
   );
