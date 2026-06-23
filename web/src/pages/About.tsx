@@ -1,14 +1,14 @@
 export function AboutPage() {
   return (
     <div className="h-full overflow-y-auto bg-[var(--term-bright)]">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-6 sm:space-y-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 lg:py-12 space-y-6 sm:space-y-10 lg:space-y-12">
 
         {/* Header */}
         <div>
-          <h1 className="font-['VT323'] text-3xl sm:text-5xl lg:text-6xl text-black leading-none tracking-widest">
+          <h1 className="font-['VT323'] text-3xl sm:text-5xl lg:text-6xl xl:text-7xl text-black leading-none tracking-widest">
             REELSCREAM
           </h1>
-          <p className="text-black/50 font-mono text-xs mt-1 sm:mt-2">
+          <p className="text-black/50 font-mono text-xs sm:text-sm mt-1 sm:mt-2">
             // AI-powered horror film discovery · v1.0
           </p>
         </div>
@@ -84,10 +84,10 @@ export function AboutPage() {
 
         {/* Features Grid */}
         <div>
-          <h2 className="font-['VT323'] text-lg sm:text-xl lg:text-2xl text-black tracking-widest mb-3 sm:mb-4 pb-1 border-b border-black/20">
+          <h2 className="font-['VT323'] text-lg sm:text-xl lg:text-2xl xl:text-3xl text-black tracking-widest mb-3 sm:mb-4 lg:mb-5 pb-1 border-b border-black/20">
             FEATURES
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-5">
             <FeatureCard
               icon="💀"
               title="NICHE SCORE"
@@ -145,10 +145,10 @@ export function AboutPage() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h2 className="font-['VT323'] text-lg sm:text-xl lg:text-2xl text-black tracking-widest mb-2 sm:mb-3 pb-1 border-b border-black/20">
+      <h2 className="font-['VT323'] text-lg sm:text-xl lg:text-2xl xl:text-3xl text-black tracking-widest mb-2 sm:mb-3 lg:mb-4 pb-1 border-b border-black/20">
         {title}
       </h2>
-      <div className="text-black/70 text-xs sm:text-sm leading-relaxed">
+      <div className="text-black/70 text-xs sm:text-sm lg:text-base leading-relaxed">
         {children}
       </div>
     </section>
@@ -167,12 +167,12 @@ function FeatureCard({
   icon: string; title: string; description: string; large?: boolean;
 }) {
   return (
-    <div className={`p-3 sm:p-4 border-2 border-black bg-white hover:bg-black/5 transition-colors ${large ? "sm:col-span-2" : ""}`}>
-      <div className="flex items-start gap-2 sm:gap-3">
-        <span className={`${large ? "text-3xl sm:text-4xl" : "text-2xl sm:text-3xl"} leading-none shrink-0`}>{icon}</span>
+    <div className={`p-3 sm:p-4 lg:p-5 border-2 border-black bg-white hover:bg-black/5 transition-colors ${large ? "sm:col-span-2 lg:col-span-3" : ""}`}>
+      <div className="flex items-start gap-2 sm:gap-3 lg:gap-4">
+        <span className={`${large ? "text-3xl sm:text-4xl lg:text-5xl" : "text-2xl sm:text-3xl lg:text-4xl"} leading-none shrink-0`}>{icon}</span>
         <div className="flex-1 min-w-0">
-          <h3 className={`font-['VT323'] ${large ? "text-lg sm:text-2xl" : "text-base sm:text-lg"} text-black tracking-wider`}>{title}</h3>
-          <p className="text-xs sm:text-sm text-black/70 leading-relaxed mt-1">{description}</p>
+          <h3 className={`font-['VT323'] ${large ? "text-lg sm:text-2xl lg:text-3xl" : "text-base sm:text-lg lg:text-xl"} text-black tracking-wider`}>{title}</h3>
+          <p className="text-xs sm:text-sm lg:text-base text-black/70 leading-relaxed mt-1">{description}</p>
         </div>
       </div>
     </div>
