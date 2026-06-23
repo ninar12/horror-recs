@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
 import { api } from "../api";
 import { FilmCard, ExpandableText } from "../components/FilmCard";
 import { useAuth } from "../contexts/AuthContext";
@@ -18,15 +18,26 @@ function getNicheTier(score: number) {
   return null;
 }
 
+const PLATFORMS_KEY = "reelscream_preferred_platforms";
+
 export function FilmPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const film = (location.state as any)?.film;
-  const { loggedIn, watchedIds, toggleWatched } = useAuth();
+  const { loggedIn, watchedIds, toggleWatched, openAuth } = useAuth();
+
+  const preferredPlatforms: Set<string> = (() => {
+    try {
+      const s = localStorage.getItem(PLATFORMS_KEY);
+      return s ? new Set(JSON.parse(s)) : new Set();
+    } catch { return new Set(); }
+  })();
+
+  const shuffle = (arr: any[]) => [...arr].sort(() => Math.random() - 0.5);
 
   const [similar, setSimilar] = useState<any[]>([]);
   const [similarPool, setSimilarPool] = useState<any[]>([]);
-  const [loadingSimilar, setLoadingSimilar] = useState(false);
+  const [loadingSimilar, setLoadingSimilar] = useState(true);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -54,7 +65,21 @@ export function FilmPage() {
   // Auto-fetch similar on load
   useEffect(() => {
     if (!film) return;
-    fetchSimilar();
+    let cancelled = false;
+    setLoadingSimilar(true);
+    api.search.similar({
+      film_id: film.id, title: film.title,
+      synopsis: film.synopsis, genres: film.genres,
+      atmosphere: film.atmosphere,
+    }).then((res) => {
+      if (cancelled) return;
+      const pool = res.data.films || [];
+      setSimilarPool(pool);
+      setSimilar(shuffle(pool).slice(0, 8));
+    }).finally(() => {
+      if (!cancelled) setLoadingSimilar(false);
+    });
+    return () => { cancelled = true; };
   }, [film?.id]);
 
   if (!film) {
@@ -71,10 +96,7 @@ export function FilmPage() {
   const imdbUrl = `https://www.imdb.com/find/?q=${encodeURIComponent(`${film.title} ${film.year ?? ""}`)}`;
   const rtUrl = `https://www.rottentomatoes.com/search?search=${encodeURIComponent(film.title)}`;
 
-  const shuffle = (arr: any[]) => [...arr].sort(() => Math.random() - 0.5);
-
   const fetchSimilar = async () => {
-    if (loadingSimilar) return;
     setLoadingSimilar(true);
     try {
       const res = await api.search.similar({
@@ -144,146 +166,163 @@ export function FilmPage() {
         className="relative w-full max-w-5xl mx-auto px-4 py-6 my-4"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* X button */}
-        <button
-          onClick={() => navigate("/")}
-          className="absolute top-8 right-6 text-[var(--term-mid)] hover:text-[var(--term-bright)] text-xl leading-none z-10 transition-colors"
-        >
-          ✕
-        </button>
-
         {/* Main card */}
-        <div className="flex flex-col sm:flex-row gap-6 mb-8 border border-[var(--term-bright)] p-5 bg-[var(--term-panel)]"
-          style={{ borderTopColor: accentColor, borderTopWidth: "3px" }}>
+        <div className="mb-8 bg-[var(--term-panel)] border border-[var(--term-dark)] flex flex-col sm:flex-row"
+          style={{ borderTopColor: accentColor, borderTopWidth: "2px" }}>
 
           {/* Poster */}
-          <div className="sm:w-72 shrink-0 flex flex-col">
+          <div className="sm:w-64 shrink-0 bg-black overflow-hidden self-start">
             {film.poster_url ? (
               <img src={film.poster_url} alt={film.title}
-                className="w-full object-cover border border-[var(--term-dark)]"
-                style={{ maxHeight: "420px" }}
+                className="w-full h-full object-cover object-top"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
             ) : (
-              <div className="w-full bg-black border border-[var(--term-dark)] flex items-center justify-center font-['VT323'] text-[var(--term-dark)] text-8xl"
-                style={{ aspectRatio: "2/3" }}>?</div>
-            )}
-            {film.keywords?.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 pt-2.5">
-                {film.keywords.slice(0, 5).map((k: string) => (
-                  <span key={k} className="text-[9px] font-mono px-1.5 py-px border border-[var(--term-dark)] text-[var(--term-mid)]">
-                    {k.toLowerCase().replace(/ /g, "_")}
-                  </span>
-                ))}
-              </div>
+              <div className="w-full h-full min-h-48 flex items-center justify-center font-['VT323'] text-[var(--term-dark)] text-8xl">?</div>
             )}
           </div>
 
-          {/* Details */}
-          <div className="flex-1 min-w-0 space-y-4">
-            <div>
-              <h1 className="text-[var(--term-bright)] font-['VT323'] text-5xl leading-tight tracking-wide mb-1">
-                {film.title}
-              </h1>
-              <div className="flex items-center gap-3 flex-wrap text-sm font-mono text-[var(--term-mid)]">
-                {film.year && <span>{film.year}</span>}
-                {film.director && <span>{film.director}</span>}
-                {tier && film.niche_score != null && (
-                  <span className="text-[10px] px-1.5 py-px border" style={{ color: tier.color, borderColor: tier.color }}>
-                    {tier.label} {film.niche_score}/10
-                  </span>
-                )}
-              </div>
-            </div>
+          {/* Content */}
+          <div className="flex-1 min-w-0 px-8 py-7 relative">
 
-            {/* Ratings */}
-            {(film.imdb_rating != null || film.rt_score != null || film.lb_rating != null) && (
-              <div className="flex gap-2 flex-wrap">
-                {film.imdb_rating != null && (
-                  <a href={imdbUrl} target="_blank" rel="noopener noreferrer"
-                    className="flex flex-col items-center px-3 py-2 border border-[var(--term-dark)] hover:border-[var(--term-bright)] transition-colors min-w-[60px]">
-                    <span className="text-[9px] font-mono text-[var(--term-dark)] uppercase">IMDb</span>
-                    <span className="text-xl font-['VT323']" style={{ color: scoreColor(film.imdb_rating, 10) }}>{film.imdb_rating.toFixed(1)}</span>
-                  </a>
-                )}
-                {film.rt_score != null && (
-                  <a href={rtUrl} target="_blank" rel="noopener noreferrer"
-                    className="flex flex-col items-center px-3 py-2 border border-[var(--term-dark)] hover:border-[var(--term-bright)] transition-colors min-w-[60px]">
-                    <span className="text-[9px] font-mono text-[var(--term-dark)] uppercase">RT</span>
-                    <span className="text-xl font-['VT323']" style={{ color: scoreColor(film.rt_score, 100) }}>{film.rt_score}%</span>
-                  </a>
-                )}
-                {film.lb_rating != null && (
-                  <a href={letterboxdUrl} target="_blank" rel="noopener noreferrer"
-                    className="flex flex-col items-center px-3 py-2 border border-[var(--term-dark)] hover:border-[var(--term-bright)] transition-colors min-w-[60px]">
-                    <span className="text-[9px] font-mono text-[var(--term-dark)] uppercase">Letterboxd</span>
-                    <span className="text-xl font-['VT323']" style={{ color: scoreColor(film.lb_rating, 5) }}>{film.lb_rating.toFixed(1)}</span>
-                  </a>
-                )}
-              </div>
-            )}
+          {/* Close */}
+          <button
+            onClick={() => navigate("/")}
+            className="absolute top-4 right-4 text-[var(--term-mid)] hover:text-[var(--term-bright)] border border-[var(--term-dark)] hover:border-[var(--term-bright)] w-7 h-7 flex items-center justify-center transition-colors text-sm leading-none"
+          >
+            ✕
+          </button>
 
-            {/* AI reason */}
-            {film.why_youll_like_it && (
-              <p className="text-sm italic pl-3 border-l-2 leading-relaxed" style={{ color: accentColor, borderColor: accentColor }}>
-                {film.why_youll_like_it}
-              </p>
-            )}
+          {/* Title */}
+          <h1 className="font-['VT323'] text-6xl leading-none tracking-wide pr-10" style={{ color: accentColor }}>
+            {film.title}
+          </h1>
 
-            {film.synopsis && <ExpandableText label="SYNOPSIS" text={film.synopsis} />}
-            {film.atmosphere && <ExpandableText label="ATMOSPHERE" text={film.atmosphere} />}
-
-
-            {/* Streaming */}
-            {film.streaming_platforms?.length > 0 && (
-              <div>
-                <div className="text-[10px] font-mono text-[var(--term-dark)] uppercase tracking-widest mb-2">STREAM</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {film.streaming_platforms.map((p: string) => (
-                    <span key={p} className="text-[11px] font-mono px-2 py-0.5 border border-[var(--term-dark)] text-[var(--term-mid)] bg-black/40 hover:text-[var(--term-bright)] hover:border-[var(--term-bright)] transition-colors">
-                      {p}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex gap-2 flex-wrap pt-1 items-center">
-              <a href={letterboxdUrl} target="_blank" rel="noopener noreferrer"
-                className="text-xs font-mono px-2 py-1 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-mid)] transition-colors">
-                LETTERBOXD ↗
-              </a>
-              <a href={imdbUrl} target="_blank" rel="noopener noreferrer"
-                className="text-xs font-mono px-2 py-1 border border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[var(--term-bright)] hover:border-[var(--term-mid)] transition-colors">
-                IMDB ↗
-              </a>
-              {loggedIn && film && (
-                <button
-                  onClick={handleToggleWatched}
-                  disabled={watchedPending}
-                  title={watchedIds.has(film.id) ? "Remove from watch history" : "Mark as watched"}
-                  className={`text-xs font-mono px-3 py-1 border transition-colors disabled:opacity-40 ${
-                    watchedIds.has(film.id)
-                      ? "border-[#4caf50] text-[#4caf50] hover:border-[#e53935] hover:text-[#e53935]"
-                      : "border-[var(--term-dark)] text-[var(--term-mid)] hover:text-[#4caf50] hover:border-[#4caf50]"
-                  }`}>
-                  {watchedPending ? "…" : watchedIds.has(film.id) ? "WATCHED ✓" : "MARK WATCHED"}
-                </button>
+          {/* Meta row: year / director / niche ············· IMDb X.X  LB X.X */}
+          <div className="flex items-center justify-between mt-2 flex-wrap gap-2">
+            <div className="flex items-center gap-2 font-mono text-sm text-[var(--term-mid)] flex-wrap">
+              {film.year && <span>{film.year}</span>}
+              {film.director && <><span className="text-[var(--term-dark)]">/</span><span>{film.director}</span></>}
+              {tier && film.niche_score != null && (
+                <><span className="text-[var(--term-dark)]">/</span>
+                <span style={{ color: tier.color }}>{tier.label} · {film.niche_score}/10</span></>
               )}
-              <button
-                onClick={added ? unsave : save}
-                disabled={adding || removing}
-                title={added ? "Click to remove from watchlist" : "Save to watchlist"}
-                className={`text-xs font-mono px-4 py-1.5 border transition-colors disabled:opacity-40 font-bold tracking-wide ${
+            </div>
+            <div className="flex items-baseline gap-4 font-mono text-sm">
+              {film.imdb_rating != null && (
+                <a href={imdbUrl} target="_blank" rel="noopener noreferrer" className="hover:opacity-70 transition-opacity">
+                  <span className="text-[var(--term-dark)] text-xs mr-1">IMDb</span>
+                  <span style={{ color: scoreColor(film.imdb_rating, 10) }}>{film.imdb_rating.toFixed(1)}</span>
+                </a>
+              )}
+              {film.rt_score != null && (
+                <a href={rtUrl} target="_blank" rel="noopener noreferrer" className="hover:opacity-70 transition-opacity">
+                  <span className="text-[var(--term-dark)] text-xs mr-1">RT</span>
+                  <span style={{ color: scoreColor(film.rt_score, 100) }}>{film.rt_score}%</span>
+                </a>
+              )}
+              {film.lb_rating != null && (
+                <a href={letterboxdUrl} target="_blank" rel="noopener noreferrer" className="hover:opacity-70 transition-opacity">
+                  <span className="text-[var(--term-dark)] text-xs mr-1">LB</span>
+                  <span style={{ color: scoreColor(film.lb_rating, 5) }}>{film.lb_rating.toFixed(1)}</span>
+                </a>
+              )}
+            </div>
+          </div>
+
+          {/* Why it matches — hero text */}
+          {film.why_youll_like_it && (
+            <p className="mt-5 text-lg italic leading-relaxed font-mono" style={{ color: accentColor }}>
+              {film.why_youll_like_it}
+            </p>
+          )}
+
+          {/* Divider */}
+          <div className="border-t border-[var(--term-dark)] my-5" />
+
+          {/* Watch */}
+          {film.streaming_platforms?.length > 0 && (
+            <div className="flex items-baseline gap-3 font-mono text-sm mb-3 flex-wrap">
+              <span className="text-[9px] uppercase tracking-[0.2em] text-[var(--term-dark)] shrink-0">WATCH</span>
+              <span className="text-[var(--term-mid)]">
+                {film.streaming_platforms.map((p: string, i: number) => {
+                  const hasPlatform = preferredPlatforms.size > 0 && preferredPlatforms.has(p);
+                  const notOwned = preferredPlatforms.size > 0 && !preferredPlatforms.has(p);
+                  return (
+                    <span key={p}>
+                      {i > 0 && <span className="text-[var(--term-dark)] mx-1.5">·</span>}
+                      <span className={hasPlatform ? "font-bold" : notOwned ? "opacity-30" : ""} style={hasPlatform ? { color: accentColor } : {}}>
+                        {p}
+                      </span>
+                    </span>
+                  );
+                })}
+              </span>
+              {preferredPlatforms.size > 0 && !film.streaming_platforms.some((p: string) => preferredPlatforms.has(p)) && (
+                <Link to="/profile" className="text-[9px] text-[var(--term-dark)] underline hover:text-[var(--term-mid)] transition-colors">manage platforms</Link>
+              )}
+            </div>
+          )}
+
+          {/* Tags */}
+          {film.keywords?.length > 0 && (
+            <div className="flex items-baseline gap-3 font-mono text-sm mb-5 flex-wrap">
+              <span className="text-[9px] uppercase tracking-[0.2em] text-[var(--term-dark)] shrink-0">TAGS</span>
+              <span className="text-[var(--term-mid)]">
+                {film.keywords.slice(0, 5).map((k: string, i: number) => (
+                  <span key={k}>{i > 0 && <span className="text-[var(--term-dark)]">, </span>}{k.toLowerCase()}</span>
+                ))}
+              </span>
+            </div>
+          )}
+
+          {/* Actions row */}
+          <div className="flex items-center gap-4 flex-wrap">
+            {!loggedIn ? (
+              <button onClick={openAuth}
+                className="text-sm font-mono px-4 py-2 border border-[var(--term-dark)] text-[var(--term-mid)] hover:border-[var(--term-bright)] hover:text-[var(--term-bright)] transition-colors">
+                LOGIN TO SAVE
+              </button>
+            ) : (
+              <button onClick={added ? unsave : save} disabled={adding || removing}
+                className={`text-sm font-mono px-4 py-2 border transition-colors disabled:opacity-40 font-bold ${
                   added
                     ? "border-[var(--term-mid)] text-[var(--term-mid)] hover:border-[#e53935] hover:text-[#e53935]"
                     : "bg-[var(--term-bright)] border-[var(--term-bright)] text-black hover:opacity-90"
                 }`}>
                 {removing ? "REMOVING…" : added ? "SAVED ✓" : adding ? "SAVING…" : "+ SAVE"}
               </button>
+            )}
+            {loggedIn && film && (
+              <button onClick={handleToggleWatched} disabled={watchedPending}
+                className={`text-sm font-mono transition-colors disabled:opacity-40 underline underline-offset-2 ${
+                  watchedIds.has(film.id)
+                    ? "text-[#4caf50] hover:text-[#e53935]"
+                    : "text-[var(--term-mid)] hover:text-[var(--term-bright)]"
+                }`}>
+                {watchedPending ? "…" : watchedIds.has(film.id) ? "Watched ✓" : "Mark watched"}
+              </button>
+            )}
+            <div className="ml-auto flex items-center gap-4">
+              <a href={letterboxdUrl} target="_blank" rel="noopener noreferrer"
+                className="text-sm font-mono text-[var(--term-mid)] hover:text-[var(--term-bright)] transition-colors">
+                Letterboxd ↗
+              </a>
+              <a href={imdbUrl} target="_blank" rel="noopener noreferrer"
+                className="text-sm font-mono text-[var(--term-mid)] hover:text-[var(--term-bright)] transition-colors">
+                IMDb ↗
+              </a>
             </div>
           </div>
-        </div>
+
+          {/* ▼ Summary */}
+          {(film.synopsis || film.atmosphere) && (
+            <div className="mt-5">
+              <SummarySection synopsis={film.synopsis} atmosphere={film.atmosphere} />
+            </div>
+          )}
+
+          </div>{/* end content */}
+        </div>{/* end main card */}
 
         {/* Similar films — always shown, auto-loaded */}
         <div>
@@ -312,6 +351,33 @@ export function FilmPage() {
         </div>
 
       </div>
+    </div>
+  );
+}
+
+function SummarySection({ synopsis, atmosphere }: { synopsis?: string; atmosphere?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-t border-[var(--term-dark)] pt-3">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 text-[10px] font-mono text-[var(--term-dark)] uppercase tracking-widest hover:text-[var(--term-mid)] transition-colors w-full text-left"
+      >
+        <span>{open ? "▲" : "▼"} SUMMARY</span>
+      </button>
+      {open && (
+        <div className="mt-2 space-y-3">
+          {synopsis && (
+            <p className="text-sm font-mono text-[var(--term-mid)] leading-relaxed">{synopsis}</p>
+          )}
+          {atmosphere && (
+            <div className="border-t border-[var(--term-dark)] pt-2">
+              <div className="text-[9px] font-mono text-[var(--term-dark)] uppercase tracking-widest mb-1">MOOD / VIBES</div>
+              <p className="text-xs font-mono text-[var(--term-mid)] leading-relaxed">{atmosphere}</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

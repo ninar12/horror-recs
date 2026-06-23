@@ -27,8 +27,9 @@ function useTheme() {
 
 function Nav() {
   const { theme, setTheme } = useTheme();
-  const { loggedIn, logout, user } = useAuth();
+  const { loggedIn, logout, user, setOpenAuthHandler } = useAuth();
   const [showAuth, setShowAuth] = useState(false);
+  useEffect(() => { setOpenAuthHandler(() => setShowAuth(true)); }, []);
 
   const base = "text-sm transition-colors px-3 py-1 border";
   const active = `${base} border-[var(--term-bright)] text-[var(--term-bright)] bg-[var(--term-bright-5)]`;

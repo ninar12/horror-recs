@@ -3,6 +3,14 @@ import { useNavigate, Link } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../contexts/AuthContext";
 
+const ALL_PLATFORMS = [
+  "Netflix", "Hulu", "Prime Video", "Max", "Disney+",
+  "Apple TV+", "Shudder", "Tubi", "Peacock", "Paramount+",
+  "Mubi", "Criterion Channel", "AMC+", "Plex",
+];
+
+const PLATFORMS_KEY = "reelscream_preferred_platforms";
+
 interface HistoryEntry {
   id: string;
   film_id: string;
@@ -33,7 +41,22 @@ export function ProfilePage() {
   const [watchlistCount, setWatchlistCount] = useState(0);
   const [savedCount, setSavedCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"history" | "stats">("history");
+  const [activeTab, setActiveTab] = useState<"history" | "stats" | "platforms">("history");
+  const [preferredPlatforms, setPreferredPlatforms] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(PLATFORMS_KEY);
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  const togglePlatform = (p: string) => {
+    setPreferredPlatforms((prev) => {
+      const next = new Set(prev);
+      next.has(p) ? next.delete(p) : next.add(p);
+      localStorage.setItem(PLATFORMS_KEY, JSON.stringify([...next]));
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!loggedIn) {
@@ -103,7 +126,7 @@ export function ProfilePage() {
 
         {/* Tabs */}
         <div className="flex border-b border-[var(--term-dark)]">
-          {(["history", "stats"] as const).map((t) => (
+          {(["history", "stats", "platforms"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setActiveTab(t)}
@@ -168,6 +191,52 @@ export function ProfilePage() {
               </div>
             )}
           </>
+        )}
+
+        {/* Platforms Tab */}
+        {activeTab === "platforms" && (
+          <div className="space-y-4">
+            <div className="border border-[var(--term-dark)] bg-[var(--term-panel)] p-5">
+              <div className="text-[var(--term-mid)] text-xs mb-1">// preferred streaming platforms</div>
+              <div className="text-[var(--term-dark)] text-[10px] mb-4">
+                select the services you have access to — used to highlight what you can watch right now
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {ALL_PLATFORMS.map((p) => {
+                  const active = preferredPlatforms.has(p);
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => togglePlatform(p)}
+                      className={`text-xs font-mono px-3 py-1.5 border transition-colors ${
+                        active
+                          ? "bg-[var(--term-bright)] border-[var(--term-bright)] text-black"
+                          : "border-[var(--term-dark)] text-[var(--term-mid)] hover:border-[var(--term-mid)] hover:text-[var(--term-bright)]"
+                      }`}
+                    >
+                      {active ? "✓ " : ""}{p}
+                    </button>
+                  );
+                })}
+              </div>
+              {preferredPlatforms.size > 0 && (
+                <button
+                  onClick={() => {
+                    setPreferredPlatforms(new Set());
+                    localStorage.removeItem(PLATFORMS_KEY);
+                  }}
+                  className="mt-4 text-[10px] font-mono text-[var(--term-dark)] hover:text-[#e53935] transition-colors"
+                >
+                  // clear all
+                </button>
+              )}
+            </div>
+            {preferredPlatforms.size > 0 && (
+              <div className="text-[var(--term-dark)] text-[10px]">
+                // {preferredPlatforms.size} platform{preferredPlatforms.size !== 1 ? "s" : ""} selected · saved locally
+              </div>
+            )}
+          </div>
         )}
 
         {/* Stats Tab */}

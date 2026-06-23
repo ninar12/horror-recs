@@ -10,7 +10,7 @@
  *   watchedIds — Set<string> of film IDs the user has marked watched
  *   toggleWatched() — add/remove a film from history
  */
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from "react";
 import { api } from "../api";
 
 interface User {
@@ -27,6 +27,8 @@ interface AuthContextValue {
   watchedIds: Set<string>;
   toggleWatched: (film: { id: string; title: string }) => Promise<void>;
   historyLoaded: boolean;
+  openAuth: () => void;
+  setOpenAuthHandler: (fn: () => void) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -35,6 +37,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [watchedIds, setWatchedIds] = useState<Set<string>>(new Set());
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const openAuthRef = useRef<() => void>(() => {});
+  const setOpenAuthHandler = useCallback((fn: () => void) => { openAuthRef.current = fn; }, []);
+  const openAuth = useCallback(() => openAuthRef.current(), []);
 
   const loadProfile = useCallback(async () => {
     try {
@@ -109,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loggedIn: !!user, login, logout, watchedIds, toggleWatched, historyLoaded }}
+      value={{ user, loggedIn: !!user, login, logout, watchedIds, toggleWatched, historyLoaded, openAuth, setOpenAuthHandler }}
     >
       {children}
     </AuthContext.Provider>

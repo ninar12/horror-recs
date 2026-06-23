@@ -83,7 +83,7 @@ export function AboutPage() {
         <Section title="HOW SEARCH WORKS">
           <p>
             When you type a query, it gets matched against a library of{" "}
-            <Highlight>9,000+ horror films</Highlight> using semantic search —
+            <Highlight>9,536 horror films</Highlight> using semantic search —
             meaning it understands meaning and mood, not just keywords.
             Searching "lonely farmhouse dread" finds films that feel that way,
             even if those words don't appear anywhere in the title or description.
@@ -91,14 +91,25 @@ export function AboutPage() {
           <p className="mt-3">
             Results are then re-ranked by an AI that reads your query and each
             candidate film and writes a one-sentence explanation of why each one fits.
-            That explanation is the <Highlight>// italicised line</Highlight> you
-            see when you open a card.
+            That explanation is the <Highlight>italicised line</Highlight> you
+            see when you open a film.
           </p>
           <p className="mt-3">
             <strong>Mood mode</strong> takes it further — your vibe gets expanded
             into a richer search query before anything is looked up, so "something
             that will actually disturb me" becomes a precise horror-theory description
             of what disturbing cinema looks like.
+          </p>
+          <p className="mt-3">
+            <strong>Image search</strong> — upload up to 5 images and the app uses
+            Gemini Vision to read each one as a horror atmosphere prompt. Multiple
+            images get synthesized into a single unified query. A photo of fog over
+            water, a brutalist hallway, a red sky — all fair game.
+          </p>
+          <p className="mt-3">
+            <strong>Find similar</strong> — open any film and scroll down to see
+            films with the same tone, atmosphere, and sensibility. Not just the same
+            genre — the same <em>feeling</em>.
           </p>
         </Section>
 
@@ -139,31 +150,30 @@ export function AboutPage() {
         </Section>
 
         {/* Ratings */}
-        <Section title="THE CONSENSUS SCORE">
+        <Section title="RATINGS">
           <p>
-            The number shown next to each film title combines three sources
-            into a single <Highlight>0–10 consensus score</Highlight>:
+            Film pages show ratings from up to three sources wherever available:
           </p>
           <div className="mt-3 space-y-1.5 font-mono text-sm">
             <div className="flex justify-between border-b border-black/10 pb-1">
-              <span className="text-black/70">IMDb rating</span>
-              <span className="text-black/40">30%</span>
+              <span className="text-black/70">IMDb</span>
+              <span className="text-black/40">out of 10</span>
             </div>
             <div className="flex justify-between border-b border-black/10 pb-1">
-              <span className="text-black/70">Rotten Tomatoes Tomatometer</span>
-              <span className="text-black/40">35%</span>
+              <span className="text-black/70">Rotten Tomatoes</span>
+              <span className="text-black/40">Tomatometer %</span>
             </div>
             <div className="flex justify-between pb-1">
-              <span className="text-black/70">Letterboxd average rating</span>
-              <span className="text-black/40">35%</span>
+              <span className="text-black/70">Letterboxd</span>
+              <span className="text-black/40">out of 5</span>
             </div>
           </div>
           <p className="mt-3">
-            If a source is missing for a film, the remaining two are
-            re-weighted between themselves. The colour coding is simple:
-            {" "}<span className="font-mono" style={{ color: "#4caf50" }}>green</span> is good (7+),{" "}
-            <span className="font-mono" style={{ color: "#f9a825" }}>yellow</span> is mixed (5–7),{" "}
-            <span className="font-mono" style={{ color: "#e53935" }}>red</span> is rough (under 5).
+            Colour coding is consistent across all three:
+            {" "}<span className="font-mono" style={{ color: "#4caf50" }}>green</span> is good,{" "}
+            <span className="font-mono" style={{ color: "#f9a825" }}>yellow</span> is mixed,{" "}
+            <span className="font-mono" style={{ color: "#e53935" }}>red</span> is rough.
+            Each rating links out to the source so you can read reviews directly.
           </p>
         </Section>
 

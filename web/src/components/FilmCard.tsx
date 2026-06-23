@@ -69,10 +69,10 @@ function RatingBadge({ label, value, color, href }: RatingBadgeProps) {
   );
 }
 
-export function ExpandableText({ label, text }: { label: string; text: string }) {
+export function ExpandableText({ label, text, size = "text-xs" }: { label: string; text: string; size?: string }) {
   const [expanded, setExpanded] = useState(false);
   return (
-    <div className="text-xs font-mono text-[var(--term-mid)] leading-relaxed">
+    <div className={`${size} font-mono text-[var(--term-mid)] leading-relaxed`}>
       <span className="text-[var(--term-dark)]">{label}  </span>
       <span>{expanded ? text : text.slice(0, 120)}{!expanded && text.length > 120 ? "…" : ""}</span>
       {text.length > 120 && (
@@ -299,21 +299,7 @@ function FilmModal({
               )}
             </div>
           )}
-
-          {/* AI reason */}
-          {film.why_youll_like_it && (
-            <p
-              className="text-sm leading-relaxed pl-3 border-l-2 italic"
-              style={{ color: accentColor, borderColor: accentColor }}
-            >
-              {film.why_youll_like_it}
-            </p>
-          )}
-
-          {film.synopsis && <ExpandableText label="SYNOPSIS" text={film.synopsis} />}
-          {film.atmosphere && <ExpandableText label="ATMOSPHERE" text={film.atmosphere} />}
-
-
+      
           {/* Streaming */}
           {film.streaming_platforms?.length ? (
             <div>
@@ -327,6 +313,20 @@ function FilmModal({
               </div>
             </div>
           ) : null}
+          
+          {/* AI reason */}
+          {film.why_youll_like_it && (
+            <p
+              className="text-sm leading-relaxed pl-3 border-l-2 italic"
+              style={{ color: accentColor, borderColor: accentColor }}
+            >
+              {film.why_youll_like_it}
+            </p>
+          )}
+
+          {film.synopsis && <ExpandableText label="SYNOPSIS" text={film.synopsis} />}
+          {film.atmosphere && <ExpandableText label="ATMOSPHERE" text={film.atmosphere} />}
+
 
           {/* Footer: links + save */}
           <div className="flex items-center gap-2 pt-1 flex-wrap">
