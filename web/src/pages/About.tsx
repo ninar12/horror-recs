@@ -112,6 +112,45 @@ export function AboutPage() {
           </div>
         </div>
 
+        {/* Example Search */}
+        <div>
+          <h2 className="font-['VT323'] text-lg sm:text-xl lg:text-2xl xl:text-3xl text-[#00ff00] tracking-widest mb-3 sm:mb-4 lg:mb-5 pb-2 border-b border-[#00ff00]/30">
+            EXAMPLE SEARCH
+          </h2>
+          <div className="bg-black/60 border border-[#00ff00]/40 p-4 sm:p-5 lg:p-6 mb-4 sm:mb-5">
+            <p className="font-mono text-xs sm:text-sm text-[#00ff00]/70 mb-2">&gt; query:</p>
+            <p className="text-lg sm:text-xl text-[#00ff00] font-['VT323'] tracking-wider mb-4">
+              lonely farmhouse southern gothic country dread and slow burn
+            </p>
+            <div className="space-y-3">
+              <ExampleResult
+                title="We Are Still Here"
+                year="2015"
+                niche="DEEP CUT"
+                imdb="6.9"
+                letterboxd="3.8"
+                why="Isolated New England farmhouse, creeping dread, perfectly paced slow burn with 70s atmosphere"
+              />
+              <ExampleResult
+                title="The House of the Devil"
+                year="2009"
+                niche="DEEP CUT"
+                imdb="6.6"
+                letterboxd="3.7"
+                why="Gorgeous dread built in solitary farmhouse, meticulous pacing, unsettling mood throughout"
+              />
+              <ExampleResult
+                title="When Animals Dream"
+                year="2014"
+                niche="HIDDEN GEM"
+                imdb="6.4"
+                letterboxd="3.5"
+                why="Rural Danish gothic, family horror on isolated property, methodical tension building"
+              />
+            </div>
+          </div>
+        </div>
+
         {/* How search works */}
         <Section title="HOW SEARCH WORKS">
           <p>
@@ -174,6 +213,34 @@ function FeatureCard({
           <h3 className={`font-['VT323'] ${large ? "text-lg sm:text-2xl lg:text-3xl" : "text-base sm:text-lg lg:text-xl"} text-[#00ff00] tracking-wider`}>{title}</h3>
           <p className="text-xs sm:text-sm lg:text-base text-[#00ff00]/70 leading-relaxed mt-1">{description}</p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ExampleResult({
+  title, year, niche, imdb, letterboxd, why,
+}: {
+  title: string; year: string; niche: string; imdb: string; letterboxd: string; why: string;
+}) {
+  return (
+    <div className="border border-[#00ff00]/30 p-3 sm:p-4 bg-black/40">
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex-1">
+          <h4 className="font-['VT323'] text-sm sm:text-base text-[#00ff00]">{title}</h4>
+          <p className="text-xs text-[#00ff00]/60 font-mono">{year}</p>
+        </div>
+        <span
+          className="text-[9px] font-mono px-2 py-1 border border-[#00ff00]/60 text-[#00ff00] whitespace-nowrap shrink-0"
+          style={{ backgroundColor: "rgba(0, 255, 0, 0.05)" }}
+        >
+          {niche}
+        </span>
+      </div>
+      <p className="text-xs sm:text-sm text-[#00ff00]/80 leading-relaxed mb-2 italic">{why}</p>
+      <div className="flex gap-4 text-xs font-mono">
+        <span className="text-[#00ff00]/60">IMDb <span className="text-[#00ff00]">{imdb}</span></span>
+        <span className="text-[#00ff00]/60">Letterboxd <span className="text-[#00ff00]">{letterboxd}</span></span>
       </div>
     </div>
   );
