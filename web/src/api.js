@@ -27,12 +27,13 @@ export const api = {
     search: {
         query: (q, opts) => client.get("/search", { params: { q, ...opts } }),
         mood: (mood, opts) => client.get("/search/mood", { params: { mood, ...opts } }),
-        image: (file, opts) => {
+        image: (files, opts) => {
             const form = new FormData();
-            form.append("file", file);
+            files.forEach((f) => form.append("files", f));
             return client.post("/search/image", form, { params: opts });
         },
         similar: (film, opts) => client.post("/search/similar", film, { params: opts }),
+        platforms: () => client.get("/search/platforms"),
     },
     watchlists: {
         list: () => client.get("/watchlists"),

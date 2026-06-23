@@ -50,6 +50,7 @@ export const api = {
       },
       opts?: { niche_min?: number }
     ) => client.post("/search/similar", film, { params: opts }),
+    platforms: () => client.get("/search/platforms"),
   },
   watchlists: {
     list: () => client.get("/watchlists"),

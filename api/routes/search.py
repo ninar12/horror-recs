@@ -181,3 +181,53 @@ async def image_search(
     context = _get_user_context(user_id) if user_id else {}
     ranked = enrich_with_posters(rerank_and_explain(horror_query, candidates, context))
     return SearchResponse(films=ranked, total=len(ranked), query_used=horror_query)
+
+
+@router.get("/platforms")
+def get_available_platforms():
+    """Get all unique streaming and rental platforms from the database."""
+    import json
+    from pathlib import Path
+
+    project_root = Path(__file__).resolve().parent.parent.parent
+    data_path = project_root / "data" / "raw_films.json"
+
+    if not data_path.exists():
+        return {"platforms": []}
+
+    with open(data_path, 'r') as f:
+        films = json.load(f)
+
+    platforms = set()
+    for film in films:
+        if 'streaming_platforms' in film and film['streaming_platforms']:
+            for p in film['streaming_platforms']:
+                if isinstance(p, dict):
+                    name = p.get('provider_name', '')
+                else:
+                    name = str(p)
+                if name and name != 'None':
+                    platforms.add(name)
+        if 'rental_platforms' in film and film['rental_platforms']:
+            for p in film['rental_platforms']:
+                if isinstance(p, dict):
+                    name = p.get('provider_name', '')
+                else:
+                    name = str(p)
+                if name and name != 'None':
+                    platforms.add(name)
+
+    # Sort and prioritize major services
+    major_services = {
+        "Netflix", "Hulu", "Amazon Prime Video", "Disney Plus", "HBO Max",
+        "Apple TV Store", "Paramount Plus Essential", "Paramount Plus Premium",
+        "Peacock Premium", "Peacock Premium Plus", "Shudder", "Starz",
+        "Criterion Channel", "MUBI", "Shout Factory", "Arrow", "BritBox"
+    }
+
+    sorted_platforms = sorted(list(platforms))
+    # Move major services to front
+    major = [p for p in sorted_platforms if p in major_services]
+    other = [p for p in sorted_platforms if p not in major_services]
+
+    return {"platforms": major + other}

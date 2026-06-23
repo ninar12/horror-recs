@@ -3,12 +3,6 @@ import { useNavigate, Link } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../contexts/AuthContext";
 
-const ALL_PLATFORMS = [
-  "Netflix", "Hulu", "Prime Video", "Max", "Disney+",
-  "Apple TV+", "Shudder", "Tubi", "Peacock", "Paramount+",
-  "Mubi", "Criterion Channel", "AMC+", "Plex",
-];
-
 const PLATFORMS_KEY = "reelscream_preferred_platforms";
 
 interface HistoryEntry {
@@ -41,6 +35,8 @@ export function ProfilePage() {
   const [watchlistCount, setWatchlistCount] = useState(0);
   const [savedCount, setSavedCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [platformsLoading, setPlatformsLoading] = useState(false);
+  const [availablePlatforms, setAvailablePlatforms] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<"history" | "stats" | "platforms">("history");
   const [preferredPlatforms, setPreferredPlatforms] = useState<Set<string>>(() => {
     try {
@@ -65,6 +61,24 @@ export function ProfilePage() {
     }
     load();
   }, [loggedIn]);
+
+  useEffect(() => {
+    if (activeTab === "platforms" && availablePlatforms.length === 0 && !platformsLoading) {
+      loadPlatforms();
+    }
+  }, [activeTab]);
+
+  const loadPlatforms = async () => {
+    setPlatformsLoading(true);
+    try {
+      const res = await api.search.platforms();
+      setAvailablePlatforms(res.data.platforms || []);
+    } catch (err) {
+      console.error("Failed to load platforms:", err);
+    } finally {
+      setPlatformsLoading(false);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -199,26 +213,30 @@ export function ProfilePage() {
             <div className="border border-[var(--term-dark)] bg-[var(--term-panel)] p-5">
               <div className="text-[var(--term-mid)] text-xs mb-1">// preferred streaming platforms</div>
               <div className="text-[var(--term-dark)] text-[10px] mb-4">
-                select the services you have access to — used to highlight what you can watch right now
+                select the services you have access to — {availablePlatforms.length} services available
               </div>
-              <div className="flex flex-wrap gap-2">
-                {ALL_PLATFORMS.map((p) => {
-                  const active = preferredPlatforms.has(p);
-                  return (
-                    <button
-                      key={p}
-                      onClick={() => togglePlatform(p)}
-                      className={`text-xs font-mono px-3 py-1.5 border transition-colors ${
-                        active
-                          ? "bg-[var(--term-bright)] border-[var(--term-bright)] text-black"
-                          : "border-[var(--term-dark)] text-[var(--term-mid)] hover:border-[var(--term-mid)] hover:text-[var(--term-bright)]"
-                      }`}
-                    >
-                      {active ? "✓ " : ""}{p}
-                    </button>
-                  );
-                })}
-              </div>
+              {platformsLoading ? (
+                <div className="text-[var(--term-mid)] text-xs">loading platforms...</div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {availablePlatforms.map((p) => {
+                    const active = preferredPlatforms.has(p);
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => togglePlatform(p)}
+                        className={`text-xs font-mono px-3 py-1.5 border transition-colors ${
+                          active
+                            ? "bg-[var(--term-bright)] border-[var(--term-bright)] text-black"
+                            : "border-[var(--term-dark)] text-[var(--term-mid)] hover:border-[var(--term-mid)] hover:text-[var(--term-bright)]"
+                        }`}
+                      >
+                        {active ? "✓ " : ""}{p}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               {preferredPlatforms.size > 0 && (
                 <button
                   onClick={() => {

@@ -11,13 +11,16 @@ import { jsx as _jsx } from "react/jsx-runtime";
  *   watchedIds — Set<string> of film IDs the user has marked watched
  *   toggleWatched() — add/remove a film from history
  */
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { api } from "../api";
 const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [watchedIds, setWatchedIds] = useState(new Set());
     const [historyLoaded, setHistoryLoaded] = useState(false);
+    const openAuthRef = useRef(() => { });
+    const setOpenAuthHandler = useCallback((fn) => { openAuthRef.current = fn; }, []);
+    const openAuth = useCallback(() => openAuthRef.current(), []);
     const loadProfile = useCallback(async () => {
         try {
             const res = await api.auth.me();
@@ -91,7 +94,7 @@ export function AuthProvider({ children }) {
             }
         }
     }, [user, watchedIds]);
-    return (_jsx(AuthContext.Provider, { value: { user, loggedIn: !!user, login, logout, watchedIds, toggleWatched, historyLoaded }, children: children }));
+    return (_jsx(AuthContext.Provider, { value: { user, loggedIn: !!user, login, logout, watchedIds, toggleWatched, historyLoaded, openAuth, setOpenAuthHandler }, children: children }));
 }
 export function useAuth() {
     const ctx = useContext(AuthContext);
