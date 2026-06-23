@@ -28,7 +28,7 @@ export function AboutPage() {
             {" "}— AI Solutions Architect at Guess
           </p>
           <p className="mt-3">
-            I basically only watch horror movies. I'm also a{" "}
+            I basically only watch horror, thriller, and disturbing niche movies. I'm always on {" "}
             <a
               href="https://letterboxd.com"
               target="_blank"
@@ -37,14 +37,17 @@ export function AboutPage() {
             >
               Letterboxd
             </a>
-            {" "}obsessive — it's the best thing to happen to film culture on the internet.
-            ReelScream started as a personal problem: I'd spend longer picking something
-            to watch than actually watching it, and every recommendation engine kept
-            surfacing the same 40 films I'd already seen.
+            {" "}searching for the best new horror or thriller movie to watch. I want things that are unseen, unique, and have a good atmosphere.
+            ReelScream started as a personal gripe because of modern-day decision fatigue; there are too many choices available and I 
+            like to watch things strictly based on my mood. There are movies that maybe are technically niche, but amongst horror-obsessed people,
+            they may be considered not niche at all. Tubi recommendations and Letterboxd recs were pretty good, and looking at tiktoks about movie recs, 
+            but I still was doing internal calculations about where the movie can be watched, and my metric of if a letterboxd score is over 3.0 I will probably enjoy it.
+            I still wanted a way to use my tech skills to find movies that are truly niche and not just
+            surfacing the same films over. I could never be bored trying to solve this problem honestly.
           </p>
           <p className="mt-3">
-            So I built this to combine the things I care about — horror, obscurity, and AI —
-            into one tool that actually finds films worth watching. The niche score is
+            So I built this to combine the things I care about — horror, obscurity, the art of horror movies and aesthetics and AI —
+            into one tool that actually finds films worth watching and has a randomization feature. The niche score is
             basically my taste encoded as a number.
           </p>
           <p className="mt-3">
@@ -79,6 +82,35 @@ export function AboutPage() {
           </p>
         </Section>
 
+        {/* Features Grid */}
+        <div>
+          <h2 className="font-['VT323'] text-2xl text-black tracking-widest mb-4 pb-1 border-b border-black/20">
+            FEATURES
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FeatureCard
+              icon="🎲"
+              title="SHUFFLE"
+              description="Can't decide? Hit shuffle for a curated random search. Deep-cut queries like 'forgotten 70s occult horror' get picked automatically."
+            />
+            <FeatureCard
+              icon="🎬"
+              title="MOOD SEARCH"
+              description="Describe your vibe—'something unsettling' becomes a precise horror-theory search. The AI understands mood, not just keywords."
+            />
+            <FeatureCard
+              icon="📸"
+              title="IMAGE SEARCH"
+              description="Upload photos (fog, brutalism, red skies) and let Gemini Vision read them as atmosphere prompts. Up to 5 images synthesized into one query."
+            />
+            <FeatureCard
+              icon="⭐"
+              title="RATINGS"
+              description="See scores from IMDb, Rotten Tomatoes, and Letterboxd on every film. Colour-coded—green is good, yellow is mixed, red is rough."
+            />
+          </div>
+        </div>
+
         {/* How search works */}
         <Section title="HOW SEARCH WORKS">
           <p>
@@ -93,18 +125,6 @@ export function AboutPage() {
             candidate film and writes a one-sentence explanation of why each one fits.
             That explanation is the <Highlight>italicised line</Highlight> you
             see when you open a film.
-          </p>
-          <p className="mt-3">
-            <strong>Mood mode</strong> takes it further — your vibe gets expanded
-            into a richer search query before anything is looked up, so "something
-            that will actually disturb me" becomes a precise horror-theory description
-            of what disturbing cinema looks like.
-          </p>
-          <p className="mt-3">
-            <strong>Image search</strong> — upload up to 5 images and the app uses
-            Gemini Vision to read each one as a horror atmosphere prompt. Multiple
-            images get synthesized into a single unified query. A photo of fog over
-            water, a brutalist hallway, a red sky — all fair game.
           </p>
           <p className="mt-3">
             <strong>Find similar</strong> — open any film and scroll down to see
@@ -233,6 +253,24 @@ function ScoreTier({
         </span>
       </div>
       <p className="text-sm text-black/60 leading-snug">{children}</p>
+    </div>
+  );
+}
+
+function FeatureCard({
+  icon, title, description,
+}: {
+  icon: string; title: string; description: string;
+}) {
+  return (
+    <div className="p-4 border-2 border-black bg-white hover:bg-black/5 transition-colors">
+      <div className="flex items-start gap-3">
+        <span className="text-3xl leading-none">{icon}</span>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-['VT323'] text-lg text-black tracking-wider">{title}</h3>
+          <p className="text-sm text-black/70 leading-relaxed mt-1">{description}</p>
+        </div>
+      </div>
     </div>
   );
 }
