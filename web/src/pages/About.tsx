@@ -1,14 +1,14 @@
 export function AboutPage() {
   return (
-    <div className="h-full overflow-y-auto bg-[var(--term-bright)]">
+    <div className="h-full overflow-y-auto bg-black">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 lg:py-12 space-y-6 sm:space-y-10 lg:space-y-12">
 
         {/* Header */}
         <div>
-          <h1 className="font-['VT323'] text-3xl sm:text-5xl lg:text-6xl xl:text-7xl text-black leading-none tracking-widest">
+          <h1 className="font-['VT323'] text-3xl sm:text-5xl lg:text-6xl xl:text-7xl text-[#00ff00] leading-none tracking-widest">
             REELSCREAM
           </h1>
-          <p className="text-black/50 font-mono text-xs sm:text-sm mt-1 sm:mt-2">
+          <p className="text-[#00ff00]/60 font-mono text-xs sm:text-sm mt-1 sm:mt-2">
             // AI-powered horror film discovery · v1.0
           </p>
         </div>
@@ -21,48 +21,48 @@ export function AboutPage() {
               href="https://github.com/ninarhone"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-bold text-black underline underline-offset-2 hover:opacity-60 transition-opacity"
+              className="font-bold text-[#00ff00] underline underline-offset-2 hover:opacity-70 transition-opacity"
             >
               Nina Rhone
             </a>
             {" "}— AI Solutions Architect at Guess
           </p>
-          <p className="mt-3">
+          <p>
             I basically only watch horror, thriller, and disturbing niche movies. I'm always on {" "}
             <a
               href="https://letterboxd.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-bold text-black underline underline-offset-2 hover:opacity-60 transition-opacity"
+              className="font-bold text-[#00ff00] underline underline-offset-2 hover:opacity-70 transition-opacity"
             >
               Letterboxd
             </a>
             {" "}searching for the best new horror or thriller movie to watch. I want things that are unseen, unique, and have a good atmosphere.
-            ReelScream started as a personal gripe because of modern-day decision fatigue; there are too many choices available and I 
+            ReelScream started as a personal gripe because of modern-day decision fatigue; there are too many choices available and I
             like to watch things strictly based on my mood. There are movies that maybe are technically niche, but amongst horror-obsessed people,
-            they may be considered not niche at all. Tubi recommendations and Letterboxd recs were pretty good, and looking at tiktoks about movie recs, 
+            they may be considered not niche at all. Tubi recommendations and Letterboxd recs were pretty good, and looking at tiktoks about movie recs,
             but I still was doing internal calculations about where the movie can be watched, and my metric of if a letterboxd score is over 3.0 I will probably enjoy it.
             I still wanted a way to use my tech skills to find movies that are truly niche and not just
             surfacing the same films over. I could never be bored trying to solve this problem honestly.
           </p>
-          <p className="mt-3">
+          <p>
             So I built this to combine the things I care about — horror, obscurity, the art of horror movies and aesthetics and AI —
             into one tool that actually finds films worth watching and has a randomization feature. The niche score is
             basically my taste encoded as a number.
           </p>
-          <p className="mt-3">
+          <p>
             Designed and coded with the help of{" "}
             <a
               href="https://claude.ai/code"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-bold text-black underline underline-offset-2 hover:opacity-60 transition-opacity"
+              className="font-bold text-[#00ff00] underline underline-offset-2 hover:opacity-70 transition-opacity"
             >
               Claude Code
             </a>
             {" "}by Anthropic.
           </p>
-          <p className="mt-4 font-mono text-xs text-black/40">
+          <p className="font-mono text-xs text-[#00ff00]/50">
             // film data via TMDb · ratings via IMDb, Rotten Tomatoes, Letterboxd
             <br />
             // embeddings via Pinecone · AI reranking via Gemini 2.5 Flash
@@ -84,7 +84,7 @@ export function AboutPage() {
 
         {/* Features Grid */}
         <div>
-          <h2 className="font-['VT323'] text-lg sm:text-xl lg:text-2xl xl:text-3xl text-black tracking-widest mb-3 sm:mb-4 lg:mb-5 pb-1 border-b border-black/20">
+          <h2 className="font-['VT323'] text-lg sm:text-xl lg:text-2xl xl:text-3xl text-[#00ff00] tracking-widest mb-3 sm:mb-4 lg:mb-5 pb-2 border-b border-[#00ff00]/30">
             FEATURES
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-5">
@@ -144,11 +144,11 @@ export function AboutPage() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section>
-      <h2 className="font-['VT323'] text-lg sm:text-xl lg:text-2xl xl:text-3xl text-black tracking-widest mb-2 sm:mb-3 lg:mb-4 pb-1 border-b border-black/20">
+    <section className="border border-[#00ff00]/30 p-4 sm:p-5 lg:p-6 bg-black">
+      <h2 className="font-['VT323'] text-lg sm:text-xl lg:text-2xl xl:text-3xl text-[#00ff00] tracking-widest mb-3 sm:mb-4 lg:mb-5 pb-2 border-b border-[#00ff00]/30">
         {title}
       </h2>
-      <div className="text-black/70 text-xs sm:text-sm lg:text-base leading-relaxed">
+      <div className="text-[#00ff00]/80 text-xs sm:text-sm lg:text-base leading-relaxed space-y-3">
         {children}
       </div>
     </section>
@@ -157,7 +157,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Highlight({ children }: { children: React.ReactNode }) {
   return (
-    <span className="font-mono font-bold text-black">{children}</span>
+    <span className="font-mono font-bold text-[#00ff00]">{children}</span>
   );
 }
 
@@ -167,12 +167,12 @@ function FeatureCard({
   icon: string; title: string; description: string; large?: boolean;
 }) {
   return (
-    <div className={`p-3 sm:p-4 lg:p-5 border-2 border-black bg-white hover:bg-black/5 transition-colors ${large ? "sm:col-span-2 lg:col-span-3" : ""}`}>
+    <div className={`p-3 sm:p-4 lg:p-5 border-2 border-[#00ff00]/60 bg-black hover:bg-[#00ff00]/5 transition-colors ${large ? "sm:col-span-2 lg:col-span-3" : ""}`}>
       <div className="flex items-start gap-2 sm:gap-3 lg:gap-4">
         <span className={`${large ? "text-3xl sm:text-4xl lg:text-5xl" : "text-2xl sm:text-3xl lg:text-4xl"} leading-none shrink-0`}>{icon}</span>
         <div className="flex-1 min-w-0">
-          <h3 className={`font-['VT323'] ${large ? "text-lg sm:text-2xl lg:text-3xl" : "text-base sm:text-lg lg:text-xl"} text-black tracking-wider`}>{title}</h3>
-          <p className="text-xs sm:text-sm lg:text-base text-black/70 leading-relaxed mt-1">{description}</p>
+          <h3 className={`font-['VT323'] ${large ? "text-lg sm:text-2xl lg:text-3xl" : "text-base sm:text-lg lg:text-xl"} text-[#00ff00] tracking-wider`}>{title}</h3>
+          <p className="text-xs sm:text-sm lg:text-base text-[#00ff00]/70 leading-relaxed mt-1">{description}</p>
         </div>
       </div>
     </div>
