@@ -89,9 +89,10 @@ export function AboutPage() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FeatureCard
-              icon="🎲"
-              title="SHUFFLE"
-              description="Can't decide? Hit shuffle for a curated random search. Deep-cut queries like 'forgotten 70s occult horror' get picked automatically."
+              icon="💀"
+              title="NICHE SCORE"
+              description="Every film gets a 1–10 obscurity rating. DEEP CUT (8–10) are genuinely under-the-radar. CULT PICK (6–7) have a devoted following. HIDDEN GEM (4–5) are underseen relative to quality. Measure how obscure a film is relative to the entire library."
+              large
             />
             <FeatureCard
               icon="🎬"
@@ -106,7 +107,7 @@ export function AboutPage() {
             <FeatureCard
               icon="⭐"
               title="RATINGS"
-              description="See scores from IMDb, Rotten Tomatoes, and Letterboxd on every film. Colour-coded—green is good, yellow is mixed, red is rough."
+              description="See scores from IMDb and Letterboxd on every film. Colour-coded—green is good, yellow is mixed, red is rough. Links go directly to source."
             />
           </div>
         </div>
@@ -133,83 +134,6 @@ export function AboutPage() {
           </p>
         </Section>
 
-        {/* Niche score */}
-        <Section title="THE NICHE SCORE">
-          <p>
-            Every film has a <Highlight>niche score from 1–10</Highlight>.
-            It measures how obscure a film is relative to everything else in the library.
-          </p>
-          <div className="mt-4 space-y-2">
-            <ScoreTier color="#cc44ff" label="DEEP CUT" range="8–10">
-              Genuinely under-the-radar. Most people in a room of horror fans
-              will not have seen this. These are the films ReelScream exists to surface.
-            </ScoreTier>
-            <ScoreTier color="#4488ff" label="CULT PICK" range="6–7">
-              Known in the right circles. Has a devoted following but never
-              crossed into mainstream awareness.
-            </ScoreTier>
-            <ScoreTier color="var(--term-dark)" label="HIDDEN GEM" range="4–5">
-              Underseen relative to how good it is. You may have heard of it
-              but probably haven't watched it.
-            </ScoreTier>
-            <ScoreTier color="black" label="(no badge)" range="1–3">
-              Mainstream picks. Still relevant if your query matches — but you've
-              probably already seen these.
-            </ScoreTier>
-          </div>
-          <p className="mt-4">
-            The score is based on real audience data — how many people have
-            actually seen and rated the film. A film can have a great score
-            and a low niche rating, or a terrible score and a high one.
-            Niche is not the same as quality.
-          </p>
-          <p className="mt-3">
-            The niche slider in the search panel lets you set a floor —
-            drag it right to filter out anything too mainstream.
-          </p>
-        </Section>
-
-        {/* Ratings */}
-        <Section title="RATINGS">
-          <p>
-            Film pages show ratings from up to three sources wherever available:
-          </p>
-          <div className="mt-3 space-y-1.5 font-mono text-sm">
-            <div className="flex justify-between border-b border-black/10 pb-1">
-              <span className="text-black/70">IMDb</span>
-              <span className="text-black/40">out of 10</span>
-            </div>
-            <div className="flex justify-between border-b border-black/10 pb-1">
-              <span className="text-black/70">Rotten Tomatoes</span>
-              <span className="text-black/40">Tomatometer %</span>
-            </div>
-            <div className="flex justify-between pb-1">
-              <span className="text-black/70">Letterboxd</span>
-              <span className="text-black/40">out of 5</span>
-            </div>
-          </div>
-          <p className="mt-3">
-            Colour coding is consistent across all three:
-            {" "}<span className="font-mono" style={{ color: "#4caf50" }}>green</span> is good,{" "}
-            <span className="font-mono" style={{ color: "#f9a825" }}>yellow</span> is mixed,{" "}
-            <span className="font-mono" style={{ color: "#e53935" }}>red</span> is rough.
-            Each rating links out to the source so you can read reviews directly.
-          </p>
-        </Section>
-
-        {/* Shuffle */}
-        <Section title="THE SHUFFLE BUTTON">
-          <p>
-            Can't decide what to watch? Hit the shuffle button next to the search bar.
-            It picks a random deep-cut query from a curated list — things like
-            "forgotten 70s occult horror" or "cosmic horror unknowable entity" —
-            and runs a full search automatically. No thinking required.
-          </p>
-          <p className="mt-3">
-            It's the feature you use at 11pm when you've been scrolling for 20 minutes
-            and just need someone to decide for you.
-          </p>
-        </Section>
 
       </div>
     </div>
@@ -237,37 +161,17 @@ function Highlight({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ScoreTier({
-  color, label, range, children,
-}: {
-  color: string; label: string; range: string; children: React.ReactNode;
-}) {
-  return (
-    <div className="flex gap-3 items-start">
-      <div className="shrink-0 mt-0.5">
-        <span
-          className="text-[9px] font-mono px-1.5 py-px border whitespace-nowrap"
-          style={{ color, borderColor: color, backgroundColor: "rgba(0,0,0,0.06)" }}
-        >
-          {label} {range}
-        </span>
-      </div>
-      <p className="text-sm text-black/60 leading-snug">{children}</p>
-    </div>
-  );
-}
-
 function FeatureCard({
-  icon, title, description,
+  icon, title, description, large,
 }: {
-  icon: string; title: string; description: string;
+  icon: string; title: string; description: string; large?: boolean;
 }) {
   return (
-    <div className="p-4 border-2 border-black bg-white hover:bg-black/5 transition-colors">
+    <div className={`p-4 border-2 border-black bg-white hover:bg-black/5 transition-colors ${large ? "md:col-span-2" : ""}`}>
       <div className="flex items-start gap-3">
-        <span className="text-3xl leading-none">{icon}</span>
+        <span className={`${large ? "text-4xl" : "text-3xl"} leading-none`}>{icon}</span>
         <div className="flex-1 min-w-0">
-          <h3 className="font-['VT323'] text-lg text-black tracking-wider">{title}</h3>
+          <h3 className={`font-['VT323'] ${large ? "text-2xl" : "text-lg"} text-black tracking-wider`}>{title}</h3>
           <p className="text-sm text-black/70 leading-relaxed mt-1">{description}</p>
         </div>
       </div>
