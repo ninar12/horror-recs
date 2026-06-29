@@ -351,9 +351,58 @@ export function SearchPage() {
         </div>
         <div className="flex-1 overflow-y-auto px-3 py-3 sm:px-5 sm:py-4">
           {!loading && allFilms.length === 0 && !queryUsed && (
-            <div className="flex flex-col items-center justify-center h-full text-center select-none">
-              <div className="font-['VT323'] text-[100px] sm:text-[120px] leading-none text-black/10">?</div>
-              <div className="text-black/30 text-sm mt-2 font-mono">describe a vibe, paste a title, or drop an image</div>
+            <div className="flex flex-col items-center justify-center h-full text-center select-none space-y-6 px-4">
+              {/* Header */}
+              <div>
+                <div className="font-['VT323'] text-4xl sm:text-5xl leading-tight text-black/40 mb-2">
+                  START HERE
+                </div>
+                <p className="text-black/50 text-xs sm:text-sm font-mono">three ways to discover horror</p>
+              </div>
+
+              {/* Flow Diagram */}
+              <div className="w-full max-w-md space-y-2 text-[10px] sm:text-xs font-mono text-black/40">
+                <div className="border-l-2 border-black/20 pl-3 py-2 text-left">
+                  <span className="text-black/60">[1] TEXT SEARCH</span>
+                  <div className="text-black/30 mt-1 text-[9px]">describe mood, vibe, or title</div>
+                </div>
+                <div className="text-center text-black/20">↓</div>
+                <div className="border-l-2 border-black/20 pl-3 py-2 text-left">
+                  <span className="text-black/60">[2] IMAGE SEARCH</span>
+                  <div className="text-black/30 mt-1 text-[9px]">upload photos as visual prompts</div>
+                </div>
+                <div className="text-center text-black/20">↓</div>
+                <div className="border-l-2 border-black/20 pl-3 py-2 text-left">
+                  <span className="text-black/60">[3] QUICK PICKS</span>
+                  <div className="text-black/30 mt-1 text-[9px]">curated searches in sidebar</div>
+                </div>
+              </div>
+
+              {/* Example Prompts */}
+              <div className="w-full max-w-2xl">
+                <p className="text-black/40 text-[9px] font-mono mb-3 uppercase tracking-widest">// try these searches</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {[
+                    "lonely farmhouse southern gothic country dread",
+                    "psychological mindfuck slow burn",
+                    "supernatural atmospheric dread with isolation",
+                    "deeply obscure folk horror rituals",
+                    "forgotten 70s occult horror vibes",
+                    "cosmic horror unknowable entity",
+                  ].map((prompt, i) => (
+                    <button
+                      key={i}
+                      onClick={() => { setQuery(prompt); run(prompt); }}
+                      className="text-left text-[10px] sm:text-xs p-2 border border-black/20 text-black/60 hover:text-black hover:border-black/60 hover:bg-black/5 transition-colors font-mono leading-relaxed"
+                    >
+                      &gt; {prompt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Or Use Sidebar */}
+              <p className="text-black/30 text-[10px] font-mono">or open the sidebar for <span className="text-black/50 font-bold">quick picks</span> and <span className="text-black/50 font-bold">themes</span></p>
             </div>
           )}
           {!loading && allFilms.length === 0 && queryUsed && (
