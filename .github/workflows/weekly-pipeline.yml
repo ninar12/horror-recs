@@ -1,0 +1,53 @@
+name: Weekly Horror Film Pipeline
+
+# Run every Sunday at 2 AM UTC
+on:
+  schedule:
+    - cron: '0 2 * * 0'
+  # Also allow manual trigger from GitHub
+  workflow_dispatch:
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run weekly pipeline
+        env:
+          TMDB_READ_TOKEN: ${{ secrets.TMDB_READ_TOKEN }}
+          OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
+          PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+          PINECONE_INDEX_NAME: ${{ secrets.PINECONE_INDEX_NAME }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        run: |
+          echo "Step 1: Fetching horror films from TMDb..."
+          python scripts/scrape_films.py
+
+          echo "Step 2: Creating embeddings and indexing..."
+          python scripts/embed_and_index.py
+
+          echo "Step 3: Updating streaming platforms..."
+          python scripts/patch_streaming.py
+
+          echo "Pipeline complete!"
+
+      - name: Push updated data
+        if: success()
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data/raw_films.json data/film_ids.json
+          git commit -m "chore: weekly pipeline update" || true
+          git push
