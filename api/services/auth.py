@@ -1,20 +1,26 @@
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
-import bcrypt as _bcrypt
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 import os
 import uuid
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+_ph = PasswordHasher()
 
 
 def hash_password(password: str) -> str:
-    return _bcrypt.hashpw(password.encode(), _bcrypt.gensalt()).decode()
+    return _ph.hash(password)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return _bcrypt.checkpw(plain.encode(), hashed.encode())
+    try:
+        _ph.verify(hashed, plain)
+        return True
+    except VerifyMismatchError:
+        return False
 
 
 def create_token(user_id: str) -> str:

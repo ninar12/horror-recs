@@ -1,19 +1,34 @@
 from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, ForeignKey, Text, JSON
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from sqlalchemy.sql import func
+from sqlalchemy.pool import QueuePool
 import os
 
 Base = declarative_base()
 
+_engine = None
+_Session = None
+
 
 def get_engine():
-    return create_engine(os.environ["DATABASE_URL"], pool_pre_ping=True)
+    global _engine
+    if _engine is None:
+        _engine = create_engine(
+            os.environ["DATABASE_URL"],
+            poolclass=QueuePool,
+            pool_size=10,
+            max_overflow=20,
+            pool_pre_ping=True,
+            pool_recycle=3600,
+        )
+    return _engine
 
 
 def get_session():
-    engine = get_engine()
-    Session = sessionmaker(bind=engine)
-    return Session()
+    global _Session
+    if _Session is None:
+        _Session = sessionmaker(bind=get_engine())
+    return _Session()
 
 
 class User(Base):

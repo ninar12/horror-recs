@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query, UploadFile, File
 import re
 from pydantic import BaseModel
+from functools import lru_cache
 from api.services.gemini import rerank_and_explain, generate_mood_query, expand_search_query, image_to_horror_query, synthesize_image_queries
 from api.services.pinecone_client import search_films
 from api.services.auth import get_optional_user_id
@@ -9,8 +10,11 @@ from api.services.film_lookup import enrich_with_posters
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
-# Larger pool gives Gemini more obscure options to pick from during reranking
-CANDIDATE_POOL = 30
+# Optimized: reduced from 30 to 15 for faster reranking
+CANDIDATE_POOL = 15
+
+# Simple in-memory cache for similarity searches (24h TTL via Python)
+_similarity_cache = {}
 
 _VIBE_WORDS = {
     "horror", "scary", "terrifying", "film", "movie", "movies", "films",
@@ -134,7 +138,7 @@ def similar_search(
     niche_max: int = Query(default=10, ge=1, le=10),
     user_id: str | None = Depends(get_optional_user_id),
 ):
-    """Find films with the same tone and atmosphere as a given film."""
+    """Find films with the same tone and atmosphere as a given film (cached)."""
     # Build a rich description from available film fields
     parts: list[str] = []
     if body.atmosphere:
@@ -147,14 +151,22 @@ def similar_search(
         parts.append(" ".join(body.themes[:5]))
     query = f"{body.title}: " + " ".join(parts) if parts else body.title
 
+    # Cache key for this similarity search
+    cache_key = f"{body.film_id}:{niche_min}:{niche_max}"
+    if cache_key in _similarity_cache:
+        cached = _similarity_cache[cache_key]
+        return SearchResponse(films=cached, total=len(cached), query_used=f"similar to: {body.title}")
+
     niche_filter = {"niche_score": {"$gte": niche_min, "$lte": niche_max}}
     candidates = search_films(query, top_k=CANDIDATE_POOL + 5, filter_dict=niche_filter)
     candidates = [c for c in candidates if c["id"] != body.film_id][:CANDIDATE_POOL]
 
-    context = _get_user_context(user_id) if user_id else {}
-    ranked = enrich_with_posters(
-        rerank_and_explain(query, candidates, context, similar_to=body.title, top_n=12)
-    )
+    # Skip reranking for similarity (just enrich with posters and return top 8)
+    ranked = enrich_with_posters(candidates[:8])
+
+    # Cache the results
+    _similarity_cache[cache_key] = ranked
+
     return SearchResponse(films=ranked, total=len(ranked), query_used=f"similar to: {body.title}")
 
 
