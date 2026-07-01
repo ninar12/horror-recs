@@ -1,6 +1,25 @@
-# ReelScream
+# ReelScream 🎬
 
-> AI-powered horror film discovery — find obscure picks by mood, theme, vibe, or image. Intentionally biased toward cult and under-seen films.
+**AI-powered horror film discovery for people who want what they've never heard of.**
+
+Instead of scrolling through the same mainstream picks on Netflix, ReelScream finds niche, obscure, and genuinely unsettling horror films based on mood, vibe, or even photos. Describe what unsettles you—get recommendations you've never seen.
+
+## How to Use
+
+**Mood Search**: Describe a vibe in plain language
+- "lonely farmhouse southern gothic country dread and slow burn"
+- "psychological mindfuck with body horror"  
+- "cosmic horror unknowable entity"
+
+**Image Search**: Upload photos (fog, brutalist hallways, red skies) and the app reads them as visual prompts.
+
+**Find Similar**: Open any film and see others with the same tone and atmosphere.
+
+**Niche Score**: Every film gets a 1-10 obscurity rating. Filter for DEEP CUTs (8-10) if you want genuinely under-the-radar picks.
+
+**Shuffle**: Can't decide? Hit the shuffle button for a random deep-cut search.
+
+---
 
 ## What it does
 
