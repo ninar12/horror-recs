@@ -32,14 +32,18 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: |
+          echo "Checking environment variables..."
+          [ -z "$TMDB_READ_TOKEN" ] && echo "ERROR: TMDB_READ_TOKEN not set" && exit 1
+          [ -z "$PINECONE_API_KEY" ] && echo "ERROR: PINECONE_API_KEY not set" && exit 1
+
           echo "Step 1: Fetching horror films from TMDb..."
-          python scripts/scrape_films.py
+          python scripts/scrape_films.py || { echo "scrape_films.py failed"; exit 1; }
 
           echo "Step 2: Creating embeddings and indexing..."
-          python scripts/embed_and_index.py
+          python scripts/embed_and_index.py || { echo "embed_and_index.py failed"; exit 1; }
 
           echo "Step 3: Updating streaming platforms..."
-          python scripts/patch_streaming.py
+          python scripts/patch_streaming.py || { echo "patch_streaming.py failed (non-critical)"; }
 
           echo "Pipeline complete!"
 

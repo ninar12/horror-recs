@@ -139,10 +139,41 @@ export function SearchPage() {
 
   const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); run(query); };
 
-  const handleRandom = () => {
-    const q = QUERIES[Math.floor(Math.random() * QUERIES.length)];
-    setQuery(q);
-    run(q);
+  const handleRandom = async () => {
+    // If we have films, use similarity search on a random film and shuffle results
+    if (allFilms.length > 0) {
+      setLoading(true);
+      const randomFilm = allFilms[Math.floor(Math.random() * allFilms.length)];
+      try {
+        const res = await api.search.similar({
+          film_id: randomFilm.id,
+          title: randomFilm.title,
+          synopsis: randomFilm.synopsis,
+          genres: randomFilm.genres,
+          atmosphere: randomFilm.atmosphere,
+        });
+        // Shuffle the similarity results
+        const shuffled = [...res.data.films].sort(() => Math.random() - 0.5);
+        setAllFilms(shuffled);
+        setVisibleCount(PAGE_SIZE);
+        setQueryUsed(`similar to: ${randomFilm.title} (shuffled)`);
+        setSimilarSection(null);
+        rotatePresets();
+      } catch (err) {
+        console.error("Shuffle failed, falling back to random query", err);
+        // Fallback: pick random query
+        const q = QUERIES[Math.floor(Math.random() * QUERIES.length)];
+        setQuery(q);
+        run(q);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // Fallback: pick random query if no films loaded yet
+      const q = QUERIES[Math.floor(Math.random() * QUERIES.length)];
+      setQuery(q);
+      run(q);
+    }
   };
 
   const addImageFiles = useCallback((incoming: File[]) => {
